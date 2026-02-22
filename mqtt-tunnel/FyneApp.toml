@@ -1,0 +1,7 @@
+Website = "https://github.com/direct-connector"
+Name    = "Direct Connector"
+
+[Details]
+  Copyright  = "2026"
+  Build      = 1
+  Version    = "1.0.0"
