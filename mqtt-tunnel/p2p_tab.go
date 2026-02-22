@@ -13,11 +13,13 @@ import (
 
 // buildP2PTab constructs the P2P tab as a copy-paste SDP wizard.
 //
-// Consumer flow (Mac / Initiator):
+// Either role can run on any OS (Mac, Windows, Linux).
+//
+// Consumer (Initiator) flow:
 //  1. Enter port list → "Generate Offer" → copy base64 SDP → send to Provider
 //  2. Paste Provider's Answer → "Connect" → tunnel is live
 //
-// Provider flow (Windows / Responder):
+// Provider (Responder) flow:
 //  1. Paste Consumer's Offer → "Accept & Generate Answer" → copy base64 SDP → send back
 //
 // No server, no third party.  Only STUN is contacted (once, to learn public IP).
@@ -60,11 +62,11 @@ func buildP2PTab(win fyne.Window) *container.TabItem {
 	// ── Mode selector ────────────────────────────────────────────────────────
 
 	modeSelect := widget.NewSelect(
-		[]string{"Consumer (Mac \u2014 initiates tunnel)", "Provider (Windows \u2014 hosts services)"},
+		[]string{"Consumer (Initiator \u2014 opens local ports)", "Provider (Responder \u2014 bridges local services)"},
 		nil,
 	)
 
-	// ── Consumer (Mac) widgets ───────────────────────────────────────────────
+	// ── Consumer (Initiator) widgets ───────────────────────────────────────────
 
 	portsEntry := widget.NewEntry()
 	portsEntry.SetPlaceHolder("e.g. 1883,8080,22")
@@ -136,7 +138,7 @@ func buildP2PTab(win fyne.Window) *container.TabItem {
 		}
 	}
 
-	consumerCard := widget.NewCard("Consumer \u2013 Mac (Initiates)", "",
+	consumerCard := widget.NewCard("Consumer \u2013 Initiator", "",
 		container.NewVBox(
 			widget.NewLabel("Ports to tunnel (comma-separated):"),
 			portsEntry,
@@ -152,7 +154,7 @@ func buildP2PTab(win fyne.Window) *container.TabItem {
 		),
 	)
 
-	// ── Provider (Windows) widgets ───────────────────────────────────────────
+	// ── Provider (Responder) widgets ───────────────────────────────────────────
 
 	offerInputEntry := widget.NewMultiLineEntry()
 	offerInputEntry.SetPlaceHolder("Paste the Consumer's Offer here")
@@ -202,7 +204,7 @@ func buildP2PTab(win fyne.Window) *container.TabItem {
 		}()
 	}
 
-	providerCard := widget.NewCard("Provider \u2013 Windows (Hosts Services)", "",
+	providerCard := widget.NewCard("Provider \u2013 Responder", "",
 		container.NewVBox(
 			widget.NewLabel("Paste the Consumer's Offer:"),
 			container.NewVScroll(offerInputEntry),
@@ -221,10 +223,10 @@ func buildP2PTab(win fyne.Window) *container.TabItem {
 
 	modeSelect.OnChanged = func(choice string) {
 		switch choice {
-		case "Consumer (Mac \u2014 initiates tunnel)":
+		case "Consumer (Initiator \u2014 opens local ports)":
 			consumerCard.Show()
 			providerCard.Hide()
-		case "Provider (Windows \u2014 hosts services)":
+		case "Provider (Responder \u2014 bridges local services)":
 			providerCard.Show()
 			consumerCard.Hide()
 		}
