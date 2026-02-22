@@ -1,0 +1,17 @@
+# fyne-cross working directories (Windows cross-compile artefacts)
+fyne-cross/
+
+# Compiled binaries (if accidentally built in-tree)
+direct-connector
+direct-connector-cli
+direct-connector-linux-amd64
+*.exe
+*.app
+
+# macOS
+.DS_Store
+
+# Go
+*.test
+*.out
+vendor/

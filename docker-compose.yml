@@ -1,0 +1,62 @@
+services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Example 1: SSH reverse tunnel
+  #   Keeps ports 1883 and 3391 forwarded to the jump server indefinitely.
+  #   Set DC_HOST, DC_PORT, DC_USER, DC_PORTS to match your environment.
+  # ──────────────────────────────────────────────────────────────────────────
+  ssh-tunnel:
+    image: direct-connector:latest
+    build:
+      context: ./app
+      dockerfile: ../Dockerfile
+    restart: unless-stopped
+    environment:
+      DC_MODE: ssh
+      DC_HOST: jump.example.com
+      DC_PORT: "443"   # 443 bypasses most firewalls (looks like HTTPS)
+      DC_USER: admin
+      DC_PORTS: "1883,3391"
+      DC_IP: "6"           # "4" | "6" | "" (auto)
+    volumes:
+      - ssh-config:/config  # persists SSH key across restarts
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Example 2: P2P tunnel — Consumer side
+  #   Writes the Offer to /data/offer.txt,
+  #   then waits for /data/answer.txt to appear before completing the handshake.
+  # ──────────────────────────────────────────────────────────────────────────
+  p2p-consumer:
+    image: direct-connector:latest
+    build:
+      context: ./app
+      dockerfile: ../Dockerfile
+    profiles: ["p2p"]
+    environment:
+      DC_MODE: p2p-consumer
+      DC_PORTS: "1883,8080"
+      DC_OFFER_OUT: /data/offer.txt
+      DC_ANSWER_IN: /data/answer.txt
+    volumes:
+      - p2p-exchange:/data
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Example 3: P2P tunnel — Provider side
+  #   Reads Offer from /data/offer.txt,
+  #   writes Answer to /data/answer.txt.
+  # ──────────────────────────────────────────────────────────────────────────
+  p2p-provider:
+    image: direct-connector:latest
+    build:
+      context: ./app
+      dockerfile: ../Dockerfile
+    profiles: ["p2p"]
+    environment:
+      DC_MODE: p2p-provider
+      DC_OFFER_IN: /data/offer.txt
+      DC_ANSWER_OUT: /data/answer.txt
+    volumes:
+      - p2p-exchange:/data
+
+volumes:
+  ssh-config:
+  p2p-exchange:

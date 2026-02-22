@@ -15,21 +15,21 @@ Port-forwards are kept alive with automatic reconnect and keep-alive probes.
 
 | Setting | What it does |
 |---|---|
-| SSH Host / Port | Your jump server's address |
+| SSH Host / Port | Your jump server's address. **Use port 443** — routers and corporate firewalls treat it as HTTPS and almost never block it. |
 | SSH User | Login username |
-| Forward Ports | Comma-separated list of ports to forward (`1883,8080,22`) |
-| IPv6 | Wrap the host in `[…]` automatically |
+| Forward Ports | Comma-separated list of ports to forward (`1883,3391`) |
+| IPv6 | Force IPv6 socket (`-6`) — use when on a DS-Lite / IPv6-only network |
 
-Settings are saved to the OS-native config directory (`~/.config/MQTTTunnelManager/` on macOS/Linux, `%AppData%\MQTTTunnelManager\` on Windows) so they survive restarts.
+Settings are saved to the OS-native config directory (`~/.config/MQTTTunnelManager/` on Linux, `~/Library/Application Support/MQTTTunnelManager/` on macOS, `%AppData%\MQTTTunnelManager\` on Windows).
 
 ### P2P Tunnel tab
 Creates a **100 % serverless, direct peer-to-peer encrypted tunnel** using WebRTC DataChannels.  
-You choose your role on this machine, exchange a single line of text with the other machine (via any channel — chat, email, even a sticky note), and the tunnel starts.
+You choose your role, exchange a single line of text with the other machine (via any channel — chat, email, even a sticky note), and the tunnel starts.
 
 No signalling server. No relay. No third-party service.  
 The only external contact is a single STUN lookup at startup to discover your public IP — after that, all data flows directly and is encrypted with DTLS.
 
-#### Roles (any OS can be either role)
+#### Roles (any OS can be either)
 
 | Role | What it does |
 |---|---|
@@ -61,29 +61,34 @@ Consumer machine                     Provider machine
 
 ```
 directSshConnector/
-├── README.md                   ← you are here
-├── MQTT Tunnel Manager (Go).md ← original design spec
-└── mqtt-tunnel/                ← Go module root
-    ├── main.go                 ← GUI entry point (build tag: !nofyne)
-    ├── main_nofyne.go          ← CLI-only entry point (build tag: nofyne)
-    ├── cli.go                  ← headless CLI: all modes, flag/env parsing
-    ├── tunnel.go               ← SSH tunnel engine (TunnelManager)
-    ├── ssh_tab.go              ← SSH tab UI (build tag: !nofyne)
-    ├── p2p.go                  ← WebRTC P2P engine (P2PSession)
-    ├── p2p_tab.go              ← P2P tab UI (build tag: !nofyne)
-    ├── keygen.go               ← Ed25519 key generation
-    ├── config.go               ← persistent SSH config (JSON)
-    ├── tunnel_test.go          ← SSH engine tests
-    ├── p2p_test.go             ← P2P engine tests
-    ├── config_test.go          ← config tests
-    ├── cli_test.go             ← CLI helpers tests
-    ├── Dockerfile              ← two-stage build → scratch image
-    ├── docker-compose.yml      ← ready-to-use service examples
-    ├── build.sh                ← build / test / cross-compile helper
-    ├── FyneApp.toml            ← Fyne app metadata
-    ├── go.mod
-    └── go.sum
+├── README.md
+├── Makefile                        ← root entry point (delegates to app/build.sh)
+├── Dockerfile                      ← two-stage Docker build (context: app/)
+├── docker-compose.yml              ← ready-to-use service examples
+├── dist/                           ← built artefacts (git-ignored)
+│   ├── direct-connector.app        ← macOS GUI bundle
+│   ├── direct-connector.exe        ← Windows GUI executable
+│   ├── direct-connector-cli        ← macOS/Linux headless CLI
+│   └── direct-connector-linux-amd64
+└── app/                            ← Go module root  (module name: mqtt-tunnel)
+    ├── FyneApp.toml
+    ├── Icon.png
+    ├── build.sh                    ← build / test / cross-compile helper
+    ├── go.mod / go.sum
+    ├── main.go                     ← GUI entry point  (build tag: !nofyne)
+    ├── main_nofyne.go              ← CLI entry point  (build tag: nofyne)
+    ├── cli.go                      ← headless CLI — all modes, flag/env parsing
+    ├── cli_test.go
+    ├── ssh_tab.go                  ← SSH tab UI       (build tag: !nofyne)
+    ├── p2p_tab.go                  ← P2P tab UI       (build tag: !nofyne)
+    └── internal/
+        ├── config/                 ← persistent JSON config
+        ├── keygen/                 ← Ed25519 keypair management
+        ├── p2p/                    ← WebRTC P2P engine
+        └── tunnel/                 ← SSH tunnel manager with auto-reconnect
 ```
+
+> **`src/` is intentionally avoided** — Go's own tooling docs call it a GOPATH-era anti-pattern. `app/` is the idiomatic name when the module cannot sit at the repo root.
 
 ---
 
@@ -91,90 +96,99 @@ directSshConnector/
 
 | Tool | Version | Install |
 |---|---|---|
-| Go | ≥ 1.21 (developed on 1.25) | `brew install go` or [go.dev](https://go.dev/dl/) |
-| Fyne CLI | latest | `go install fyne.io/fyne/v2/cmd/fyne@latest` |
-| fyne-cross | latest | `go install github.com/fyne-io/fyne-cross@latest` |
-| Docker Desktop | any | [docker.com](https://www.docker.com/products/docker-desktop/) — **only** needed for Windows cross-compile |
+| Go | ≥ 1.22 | `brew install go` or [go.dev](https://go.dev/dl/) |
+| Fyne CLI (`fyne`) | latest | `go install fyne.io/tools/cmd/fyne@latest` |
+| fyne-cross | latest | `go install github.com/fyne-io/fyne-cross@latest` — only needed for Windows cross-compile |
+| Docker Desktop | any | [docker.com](https://www.docker.com/products/docker-desktop/) — only needed for Windows cross-compile and Docker image builds |
 
-> **macOS:** Xcode Command Line Tools must be installed (`xcode-select --install`).  
-> **Windows (native build):** Install [TDM-GCC](https://jmeubank.github.io/tdm-gcc/) or any MinGW toolchain.
+> **macOS:** Xcode Command Line Tools must be installed (`xcode-select --install`).
 
 ---
 
 ## Development
 
 ```bash
-cd mqtt-tunnel
-
-# Run locally (no build step needed)
-./build.sh run
-# or
-go run .
+# Run the GUI app locally (no build step)
+make run
+# or:
+cd app && go run .
 ```
 
-The app starts immediately. Both tabs are functional. SSH settings are loaded from disk on start and saved on every change.
+Both tabs are functional immediately. SSH settings are loaded from disk on start and saved on every change.
 
 ### Run the test suite
 
 ```bash
-./build.sh test
-# or
-go test -v -race -count=1 ./...
+make test
 ```
 
 51 tests cover the SSH engine, P2P engine, CLI helpers, config persistence, and bridge/port utilities. The race detector is always enabled.
+
+```
+ok  mqtt-tunnel                   (main package — CLI helpers)
+ok  mqtt-tunnel/internal/config   (config persistence)
+ok  mqtt-tunnel/internal/keygen   (Ed25519 keypair)
+ok  mqtt-tunnel/internal/p2p      (WebRTC engine)
+ok  mqtt-tunnel/internal/tunnel   (SSH tunnel manager)
+```
 
 ---
 
 ## Building for distribution
 
-All build commands are in `mqtt-tunnel/build.sh`. Run from the `mqtt-tunnel/` directory.
+All built artefacts land in `dist/` at the project root. Use `make` from the root or `./build.sh` from inside `app/`.
+
+### Quick reference
+
+| Command | Output |
+|---|---|
+| `make mac` | `dist/direct-connector.app` |
+| `make windows` | `dist/direct-connector.exe` |
+| `make linux` | `dist/direct-connector-linux-amd64` |
+| `make cli` | `dist/direct-connector-cli` (current OS, headless) |
+| `make all` | tests + all of the above (Windows skipped gracefully if Docker unavailable) |
+| `make clean` | removes `dist/` |
 
 ### macOS `.app` bundle
 
 ```bash
-./build.sh mac
+make mac
 ```
 
-Produces `direct-connector.app` in the current directory. Double-click to launch, or drag to `/Applications`.
+Produces `dist/direct-connector.app`. Double-click to launch, or drag to `/Applications`.
 
-### Windows `.exe` (cross-compiled from macOS)
+### Windows `.exe` (cross-compiled from macOS/Linux)
 
-Docker Desktop must be running.
+Requires Docker Desktop running and `fyne-cross` installed (see Prerequisites above).
 
 ```bash
-./build.sh windows
+make windows
 ```
 
-The first run pulls a Docker image (~1 GB, one-time). Output:
+The first run pulls a Docker image (~1 GB, one-time). Output: `dist/direct-connector.exe`.  
+Copy it to a Windows machine — no installer, no runtime, no dependencies.
 
-```
-fyne-cross/bin/windows-amd64/direct-connector.exe
-```
-
-Copy the `.exe` to the target Windows machine — no installer, no runtime, no dependencies.
-
-### Build both at once
+### Linux headless binary
 
 ```bash
-./build.sh all   # runs tests first, then mac + windows + cli
+make linux
 ```
+
+Produces `dist/direct-connector-linux-amd64`. Pure-Go static binary, no CGO.
 
 ---
 
 ## CLI mode & Docker
 
-The same binary supports a fully headless CLI mode — no display server, no GUI libraries. Use it in terminal scripts, cron jobs, or Docker containers.
+The same codebase compiles to a fully headless CLI binary — no display server, no GUI libraries.
 
 ### Build the headless CLI binary
 
 ```bash
-./build.sh cli
-# or manually:
-CGO_ENABLED=0 go build -tags nofyne -ldflags="-s -w" -o direct-connector-cli .
+make cli
+# manual equivalent:
+cd app && CGO_ENABLED=0 go build -tags nofyne -ldflags="-s -w" -o ../dist/direct-connector-cli .
 ```
-
-The `nofyne` build tag excludes all Fyne code. The result is a **pure-Go, fully static binary** with no CGO, no OpenGL, no display dependency.
 
 ### CLI modes
 
@@ -183,49 +197,51 @@ The `nofyne` build tag excludes all Fyne code. The result is a **pure-Go, fully 
 | `ssh` | Persistent reverse-SSH tunnel |
 | `p2p-consumer` | WebRTC consumer: opens local ports, tunnels to provider |
 | `p2p-provider` | WebRTC provider: bridges DataChannels to local services |
-| `keygen` | Generate app Ed25519 keypair, print public key |
+| `keygen` | Generate Ed25519 keypair, print public key |
 
 Every flag also reads from a `DC_<FLAG>` environment variable:
 
 ```bash
 # SSH tunnel
-direct-connector --mode ssh \
-  --host jump.example.com --port 8080 --user admin \
+./dist/direct-connector-cli --mode ssh \
+  --host jump.example.com --port 443 --user admin \
   --ports 1883,3391 --ip 6
 
 # P2P consumer (interactive stdin/stdout)
-direct-connector --mode p2p-consumer --ports 1883,8080
+./dist/direct-connector-cli --mode p2p-consumer --ports 1883,8080
 
 # P2P provider (file-based — for Docker shared volumes)
-direct-connector --mode p2p-provider \
+./dist/direct-connector-cli --mode p2p-provider \
   --offer-in /data/offer.txt --answer-out /data/answer.txt
 
 # Generate key, print authorized_keys line
-direct-connector --mode keygen
+./dist/direct-connector-cli --mode keygen
 ```
 
 ### Docker
 
+`Dockerfile` and `docker-compose.yml` live at the project root. The build context is the `app/` directory.
+
 ```bash
 # Build image
-./build.sh docker          # or: docker build -t direct-connector:latest .
+make docker
+# or manually:
+docker build -f Dockerfile -t direct-connector:latest app/
 
 # Run SSH tunnel
 docker run --rm \
   -e DC_MODE=ssh \
   -e DC_HOST=jump.example.com \
-  -e DC_PORT=8080 \
+  -e DC_PORT=443 \
   -e DC_USER=admin \
   -e DC_PORTS=1883,3391 \
   -v dc-config:/config \
   direct-connector:latest
 ```
 
-The Docker image is built in two stages and runs `FROM scratch` — just the static binary + CA certificates. Final image is ~10 MB.
+The image is built in two stages and runs `FROM scratch` — just the static binary + CA certificates. Final image is ~10 MB.
 
 ### Docker Compose
-
-A ready-to-use [docker-compose.yml](mqtt-tunnel/docker-compose.yml) is included with three service examples:
 
 ```bash
 # Start SSH tunnel service
@@ -249,35 +265,26 @@ For the P2P case, both containers share a volume at `/data`. The consumer writes
 4. The tunnel reconnects automatically after any disconnect (5-second back-off).
 5. Click **Stop** when done.
 
-> The app uses your existing SSH key (`~/.ssh/id_rsa` etc.). Make sure the key is authorised on the jump host. No password prompts are shown — use `ssh-copy-id` beforehand if needed.
+> The app uses your existing SSH key (`~/.ssh/id_ed25519` etc.). Make sure the key is authorised on the jump host. No password prompts are shown — use `ssh-copy-id` beforehand if needed. You can also generate a dedicated key via the **keygen** CLI mode.
 
 ### P2P tunnel
 
-#### On the Consumer machine (the one that wants to *reach* services)
+#### Consumer machine (wants to *reach* services)
 
-1. Switch to the **P2P Tunnel** tab.
-2. Select **Consumer (Initiator — opens local ports)**.
-3. Enter the ports you want forwarded locally, e.g. `1883,8080`.
-4. Click **Generate Offer**. Wait ~2 seconds for ICE gathering.
-5. Click **Copy Offer** and send the text to the Provider (chat, email, anything).
-6. Wait for the Provider to send back an Answer, paste it, and click **Connect**.
+1. Switch to the **P2P Tunnel** tab and select **Consumer**.
+2. Enter the ports to forward locally, e.g. `1883,8080`.
+3. Click **Generate Offer** → wait ~2 s for ICE gathering.
+4. Click **Copy Offer** and send the text to the Provider.
+5. Receive the Answer from the Provider, paste it, click **Connect**.
 
-#### On the Provider machine (the one that *has* the services)
+#### Provider machine (has the services)
 
-1. Switch to the **P2P Tunnel** tab.
-2. Select **Provider (Responder — bridges local services)**.
-3. Paste the Consumer's Offer text.
-4. Click **Accept & Generate Answer**. Wait ~2 seconds.
-5. Click **Copy Answer** and send the text back to the Consumer.
+1. Switch to the **P2P Tunnel** tab and select **Provider**.
+2. Paste the Consumer's Offer text.
+3. Click **Accept & Generate Answer** → wait ~2 s.
+4. Click **Copy Answer** and send it back to the Consumer.
 
-The tunnel is live once both sides complete the exchange. No further coordination is needed until you click **Stop**.
-
-#### What "ports" means
-
-- **Consumer side:** `1883` means `localhost:1883` on *this* machine will be forwarded to the Provider.
-- **Provider side:** Incoming connections for port `1883` are bridged to `localhost:1883` on *that* machine.
-
-So if the Provider is running Mosquitto on 1883, the Consumer can connect its MQTT client to its own `localhost:1883` and communicate directly.
+The tunnel is live once both sides complete the exchange.
 
 ---
 
@@ -285,13 +292,13 @@ So if the Provider is running Mosquitto on 1883, the Consumer can connect its MQ
 
 | Property | Detail |
 |---|---|
-| Encryption | DTLS 1.2 (WebRTC mandatory) — all P2P traffic is encrypted |
+| Encryption | DTLS 1.2 (WebRTC mandatory) — all P2P traffic is encrypted end-to-end |
 | NAT traversal | ICE via STUN — works through most home/office routers |
-| Relay traffic | None — if ICE fails (symmetric NAT on both sides), the connection won't establish |
+| Relay traffic | None — if ICE fails (symmetric NAT on both sides), connection won't establish |
 | Signalling | Manual copy-paste — no server involved at any point |
-| SSH reconnect | Automatic, 5-second back-off, uses system `ssh` binary |
-| Config storage | OS native config dir, JSON |
-| Race safety | Tested with `-race`; all shared state guarded by `sync.Mutex`; Fyne UI mutations via `fyne.Do()` |
+| SSH reconnect | Automatic, 5-second back-off, uses the system `ssh` binary |
+| Config storage | OS-native config dir, JSON |
+| Race safety | `-race` tested; all shared state guarded by `sync.Mutex`; Fyne UI mutations via `fyne.Do()` |
 
 ---
 
@@ -301,9 +308,11 @@ So if the Provider is running Mosquitto on 1883, the Consumer can connect its MQ
 |---|---|
 | [fyne.io/fyne/v2](https://fyne.io) v2.7.3 | Cross-platform GUI |
 | [github.com/pion/webrtc/v3](https://github.com/pion/webrtc) v3.3.6 | WebRTC DataChannels (P2P) |
+| [golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) | Ed25519 keypair generation |
 
 ---
 
 ## License
 
 This project is unlicensed — use and modify it freely.
+
