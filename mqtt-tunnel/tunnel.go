@@ -41,7 +41,8 @@ type TunnelConfig struct {
 	Port         string
 	ForwardPorts string
 	User         string
-	IPv6         bool
+	IPVersion    string // "" = auto, "4" = force IPv4 (-4), "6" = force IPv6 (-6)
+	KeyPath      string // path to private key file; empty = use SSH default (~/.ssh/id_*)
 }
 
 // TunnelManager manages the lifecycle of an SSH tunnel with automatic reconnection.
@@ -216,9 +217,16 @@ func buildSSHArgs(cfg TunnelConfig) ([]string, error) {
 		return nil, fmt.Errorf("SSH port %q is not a valid number", cfg.Port)
 	}
 
-	args := make([]string, 0, 16)
-	if cfg.IPv6 {
+	args := make([]string, 0, 18)
+	switch cfg.IPVersion {
+	case "4":
+		args = append(args, "-4")
+	case "6":
 		args = append(args, "-6")
+		// default "": let SSH choose
+	}
+	if cfg.KeyPath != "" {
+		args = append(args, "-i", cfg.KeyPath)
 	}
 	args = append(args,
 		"-p", cfg.Port,

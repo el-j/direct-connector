@@ -16,7 +16,8 @@ type Config struct {
 	Port         string `json:"port"`
 	ForwardPorts string `json:"forward_ports"`
 	User         string `json:"user"`
-	IPv6         bool   `json:"ipv6"`
+	IPv6         bool   `json:"ipv6"`       // legacy; superseded by IPVersion
+	IPVersion    string `json:"ip_version"` // "" = auto, "4" = force IPv4, "6" = force IPv6
 }
 
 // defaultConfig returns safe, sensible defaults.
@@ -26,7 +27,8 @@ func defaultConfig() Config {
 		Port:         "8080",
 		ForwardPorts: "1883, 3391",
 		User:         "",
-		IPv6:         true,
+		IPv6:         true, // kept for legacy JSON round-trips
+		IPVersion:    "6",  // new field — Force IPv6 as default
 	}
 }
 
@@ -62,6 +64,10 @@ func loadConfig() Config {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "config parse error (%s): %v — using defaults\n", path, err)
 		return defaultConfig()
+	}
+	// Migrate legacy IPv6 bool to IPVersion string.
+	if cfg.IPVersion == "" && cfg.IPv6 {
+		cfg.IPVersion = "6"
 	}
 	return cfg
 }

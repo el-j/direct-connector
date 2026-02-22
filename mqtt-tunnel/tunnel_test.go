@@ -14,7 +14,7 @@ func TestBuildSSHArgs_Valid(t *testing.T) {
 		Port:         "22",
 		ForwardPorts: "1883, 3391",
 		User:         "alice",
-		IPv6:         false,
+		IPVersion:    "",
 	}
 	args, err := buildSSHArgs(cfg)
 	if err != nil {
@@ -36,9 +36,12 @@ func TestBuildSSHArgs_Valid(t *testing.T) {
 		t.Errorf("missing -R for port 3391; args: %v", args)
 	}
 
-	// Must NOT contain -6 when IPv6 is off
+	// Must NOT contain -4 or -6 when IPVersion is empty
 	if strings.Contains(joined, "-6") {
-		t.Errorf("unexpected -6 flag when IPv6 is false; args: %v", args)
+		t.Errorf("unexpected -6 flag when IPVersion is empty; args: %v", args)
+	}
+	if strings.Contains(joined, "-4") {
+		t.Errorf("unexpected -4 flag when IPVersion is empty; args: %v", args)
 	}
 
 	// Must contain -N (no remote commands)
@@ -56,14 +59,80 @@ func TestBuildSSHArgs_IPv6(t *testing.T) {
 		Port:         "8080",
 		ForwardPorts: "1883",
 		User:         "bob",
-		IPv6:         true,
+		IPVersion:    "6",
 	}
 	args, err := buildSSHArgs(cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if args[0] != "-6" {
-		t.Errorf("expected -6 as first arg when IPv6=true, got %q", args[0])
+		t.Errorf("expected -6 as first arg when IPVersion=\"6\", got %q", args[0])
+	}
+}
+
+func TestBuildSSHArgs_IPv4(t *testing.T) {
+	cfg := TunnelConfig{
+		Host:         "example.com",
+		Port:         "22",
+		ForwardPorts: "1883",
+		User:         "alice",
+		IPVersion:    "4",
+	}
+	args, err := buildSSHArgs(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if args[0] != "-4" {
+		t.Errorf("expected -4 as first arg when IPVersion=\"4\", got %q", args[0])
+	}
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "-6") {
+		t.Errorf("unexpected -6 when IPVersion=\"4\"; args: %v", args)
+	}
+}
+
+func TestBuildSSHArgs_IPAuto(t *testing.T) {
+	cfg := TunnelConfig{
+		Host: "example.com", Port: "22",
+		ForwardPorts: "1883", User: "u",
+		IPVersion: "",
+	}
+	args, err := buildSSHArgs(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "-4") || strings.Contains(joined, "-6") {
+		t.Errorf("expected no IP flag when IPVersion is empty; args: %v", args)
+	}
+}
+
+func TestBuildSSHArgs_WithKeyPath(t *testing.T) {
+	cfg := TunnelConfig{
+		Host: "example.com", Port: "22",
+		ForwardPorts: "1883", User: "u",
+		KeyPath: "/home/u/.ssh/id_ed25519",
+	}
+	args, err := buildSSHArgs(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsPair(args, "-i", "/home/u/.ssh/id_ed25519") {
+		t.Errorf("expected -i /home/u/.ssh/id_ed25519 in args; args: %v", args)
+	}
+}
+
+func TestBuildSSHArgs_NoKeyPath(t *testing.T) {
+	cfg := TunnelConfig{
+		Host: "example.com", Port: "22",
+		ForwardPorts: "1883", User: "u",
+	}
+	args, err := buildSSHArgs(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if contains(args, "-i") {
+		t.Errorf("unexpected -i flag when KeyPath is empty; args: %v", args)
 	}
 }
 

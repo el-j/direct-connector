@@ -1,3 +1,5 @@
+//go:build !nofyne
+
 package main
 
 import (
@@ -7,6 +9,12 @@ import (
 )
 
 func main() {
+	// If CLI flags or DC_MODE env var are present, run headlessly.
+	if IsCLIMode() {
+		runCLI()
+		return
+	}
+
 	myApp := app.NewWithID("io.github.direct-connector")
 	mainWindow := myApp.NewWindow("Direct Connector — SSH & P2P Tunnel")
 	mainWindow.Resize(fyne.NewSize(560, 680))

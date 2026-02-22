@@ -1,3 +1,5 @@
+//go:build !nofyne
+
 package main
 
 import (

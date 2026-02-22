@@ -1,3 +1,5 @@
+//go:build !nofyne
+
 package main
 
 import (
@@ -55,7 +57,25 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 	userEntry := widget.NewEntry()
 	userEntry.PlaceHolder = "SSH username"
 
-	ipv6Check := widget.NewCheck("Force IPv6 (Required for DS-Lite)", nil)
+	// ── IP version selector ───────────────────────────────────────────────────
+	const (
+		ipAuto = "Auto (let OS decide)"
+		ipV4   = "Force IPv4"
+		ipV6   = "Force IPv6 (DS-Lite / IPv6-only)"
+	)
+
+	ipVersionRadio := widget.NewRadioGroup([]string{ipAuto, ipV4, ipV6}, nil)
+
+	ipVersionFromRadio := func() string {
+		switch ipVersionRadio.Selected {
+		case ipV4:
+			return "4"
+		case ipV6:
+			return "6"
+		default:
+			return ""
+		}
+	}
 
 	// ── Populate from saved config ────────────────────────────────────────────
 	cfg := loadConfig()
@@ -63,13 +83,74 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 	portEntry.SetText(cfg.Port)
 	forwardEntry.SetText(cfg.ForwardPorts)
 	userEntry.SetText(cfg.User)
-	ipv6Check.SetChecked(cfg.IPv6)
+	switch cfg.IPVersion {
+	case "4":
+		ipVersionRadio.SetSelected(ipV4)
+	case "6":
+		ipVersionRadio.SetSelected(ipV6)
+	default:
+		ipVersionRadio.SetSelected(ipAuto)
+	}
 
 	form := widget.NewForm(
 		widget.NewFormItem("Host / DNS:", hostEntry),
 		widget.NewFormItem("SSH Port:", portEntry),
 		widget.NewFormItem("Forward Ports (csv):", forwardEntry),
 		widget.NewFormItem("SSH Username:", userEntry),
+		widget.NewFormItem("IP Version:", ipVersionRadio),
+	)
+
+	// ── Key management ────────────────────────────────────────────────────────
+	keyStatusLabel := widget.NewLabel("")
+	keyStatusLabel.Wrapping = fyne.TextWrapBreak
+
+	pubKeyEntry := widget.NewMultiLineEntry()
+	pubKeyEntry.SetMinRowsVisible(2)
+	pubKeyEntry.Wrapping = fyne.TextWrapBreak
+	pubKeyEntry.Disable() // read-only display; user can still select + copy
+
+	refreshKeyStatus := func() {
+		fyne.Do(func() {
+			if AppKeyExists() {
+				keyStatusLabel.SetText("Key: " + appPrivateKeyPath())
+				if pk, err := LoadAppPublicKey(); err == nil {
+					pubKeyEntry.SetText(pk)
+				}
+			} else {
+				keyStatusLabel.SetText("No key found — click Generate to create one.")
+				pubKeyEntry.SetText("")
+			}
+		})
+	}
+	refreshKeyStatus()
+
+	genKeyBtn := widget.NewButtonWithIcon("Generate New Key", theme.ContentAddIcon(), func() {
+		if err := GenerateAppKey(); err != nil {
+			dialog.ShowError(err, win)
+			return
+		}
+		refreshKeyStatus()
+		appendLog("New Ed25519 keypair generated: " + appPrivateKeyPath())
+		appendLog("Copy the public key below and add it to the server's ~/.ssh/authorized_keys")
+	})
+
+	copyPubBtn := widget.NewButtonWithIcon("Copy Public Key", theme.ContentCopyIcon(), func() {
+		pk, err := LoadAppPublicKey()
+		if err != nil {
+			dialog.ShowError(err, win)
+			return
+		}
+		win.Clipboard().SetContent(pk)
+		appendLog("Public key copied to clipboard — paste it into the server's authorized_keys.")
+	})
+
+	keyCard := widget.NewCard("SSH Key", "App-managed Ed25519 keypair",
+		container.NewVBox(
+			keyStatusLabel,
+			container.NewGridWithColumns(2, genKeyBtn, copyPubBtn),
+			widget.NewLabel("Public key (add to ~/.ssh/authorized_keys on the server):"),
+			pubKeyEntry,
+		),
 	)
 
 	// ── Tunnel manager ────────────────────────────────────────────────────────
@@ -88,7 +169,7 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 			startBtn.SetText("START TUNNEL")
 			startBtn.Icon = theme.MediaPlayIcon()
 			startBtn.Refresh()
-			enableWidgets(hostEntry, portEntry, forwardEntry, userEntry, ipv6Check)
+			enableWidgets(hostEntry, portEntry, forwardEntry, userEntry, ipVersionRadio)
 		} else {
 			host := strings.TrimSpace(hostEntry.Text)
 			port := strings.TrimSpace(portEntry.Text)
@@ -108,11 +189,18 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 			if fwdPorts == "" {
 				errs = append(errs, "• At least one Forward Port is required")
 			}
+
+			ipVer := ipVersionFromRadio()
+			keyPath := ""
+			if AppKeyExists() {
+				keyPath = appPrivateKeyPath()
+			}
+
 			if len(errs) == 0 {
 				if _, err := buildSSHArgs(TunnelConfig{
 					Host: host, Port: port,
 					ForwardPorts: fwdPorts, User: user,
-					IPv6: ipv6Check.Checked,
+					IPVersion: ipVer, KeyPath: keyPath,
 				}); err != nil {
 					errs = append(errs, "• "+err.Error())
 				}
@@ -127,10 +215,10 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 				Port:         port,
 				ForwardPorts: fwdPorts,
 				User:         user,
-				IPv6:         ipv6Check.Checked,
+				IPVersion:    ipVer,
 			})
 
-			disableWidgets(hostEntry, portEntry, forwardEntry, userEntry, ipv6Check)
+			disableWidgets(hostEntry, portEntry, forwardEntry, userEntry, ipVersionRadio)
 			startBtn.SetText("STOP TUNNEL")
 			startBtn.Icon = theme.MediaStopIcon()
 			startBtn.Refresh()
@@ -138,7 +226,7 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 			tm.Start(TunnelConfig{
 				Host: host, Port: port,
 				ForwardPorts: fwdPorts, User: user,
-				IPv6: ipv6Check.Checked,
+				IPVersion: ipVer, KeyPath: keyPath,
 			})
 		}
 	})
@@ -147,7 +235,8 @@ func buildSSHTab(win fyne.Window) *container.TabItem {
 
 	topSection := container.NewVBox(
 		form,
-		ipv6Check,
+		widget.NewSeparator(),
+		keyCard,
 		widget.NewSeparator(),
 		statusLbl,
 		startBtn,
