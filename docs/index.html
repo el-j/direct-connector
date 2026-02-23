@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Direct Connector — Secure Tunnels, Zero Cloud</title>
+  <meta name="description" content="A cross-platform desktop app for SSH reverse tunnels and serverless P2P encrypted connections. No cloud, no subscription, no relay." />
+  <meta property="og:title" content="Direct Connector" />
+  <meta property="og:description" content="Secure SSH tunnels and browser-free P2P connections. Built with Go + Wails." />
+  <meta property="og:image" content="https://el-j.github.io/directConnector/icon.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/png" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #080c14;
+      --bg-1: #0d1524;
+      --bg-2: #121d30;
+      --bg-card: rgba(255,255,255,.04);
+      --bg-card-hover: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.08);
+      --border-accent: rgba(56,189,248,.25);
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a3b8;
+      --text-muted: #4e6380;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-teal: #2dd4bf;
+      --accent-glow: rgba(56,189,248,.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-card: 0 4px 32px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.05) inset;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh gradient ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(99,102,241,.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(45,212,191,.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section { padding: 96px 0; }
+    section + section { padding-top: 0; }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(8,12,20,.75);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: .85rem;
+      color: var(--text-secondary) !important;
+      transition: border-color var(--transition), color var(--transition) !important;
+    }
+    .nav-gh:hover { border-color: var(--accent-cyan) !important; color: var(--text-primary) !important; }
+    .nav-gh svg { flex-shrink: 0; }
+
+    /* ── Hero ─────────────────────────────────────────────────────────────── */
+    .hero {
+      padding: 112px 0 80px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(56,189,248,.1);
+      border: 1px solid rgba(56,189,248,.25);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+    .hero-badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-cyan); display: inline-block; animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .5; transform: scale(.8); }
+    }
+    .hero-icon {
+      width: 120px;
+      height: 120px;
+      border-radius: 28px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 16px 64px rgba(0,0,0,.5), 0 0 80px var(--accent-glow);
+      margin: 0 auto 36px;
+      display: block;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #f0f6ff 0%, #94c4f5 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--text-secondary);
+      max-width: 580px;
+      margin: 0 auto 48px;
+      line-height: 1.7;
+    }
+    .hero-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 48px;
+    }
+    .pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .8rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .pill.accent { border-color: var(--border-accent); color: var(--accent-cyan); background: rgba(56,189,248,.07); }
+
+    /* download buttons */
+    .dl-grid {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 22px;
+      border-radius: var(--radius-md);
+      font-size: .9rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition);
+      border: 1px solid transparent;
+    }
+    .dl-btn:active { transform: scale(.97); }
+    .dl-btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+      color: #080c14;
+      box-shadow: 0 4px 20px rgba(56,189,248,.3);
+    }
+    .dl-btn-primary:hover { box-shadow: 0 6px 32px rgba(56,189,248,.45); transform: translateY(-2px); }
+    .dl-btn-secondary {
+      background: var(--bg-card);
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+    .dl-btn-secondary:hover { border-color: rgba(255,255,255,.18); background: var(--bg-card-hover); transform: translateY(-2px); }
+    .dl-btn svg { flex-shrink: 0; }
+    .dl-btn .dl-small { font-size: .72rem; font-weight: 400; opacity: .75; display: block; line-height: 1; }
+    .dl-btn-loading { opacity: .6; pointer-events: none; }
+
+    .dl-note {
+      margin-top: 16px;
+      font-size: .78rem;
+      color: var(--text-muted);
+    }
+    .dl-note a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ── Separator ────────────────────────────────────────────────────────── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ── Section header ───────────────────────────────────────────────────── */
+    .s-label {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+    }
+    .s-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -.025em;
+      line-height: 1.15;
+      margin-bottom: 14px;
+    }
+    .s-body {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.75;
+      max-width: 580px;
+    }
+
+    /* ── Feature cards ────────────────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 56px;
+    }
+    .feat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px;
+      box-shadow: var(--shadow-card);
+      transition: border-color var(--transition), background var(--transition), transform var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .feat-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, var(--card-glow, rgba(56,189,248,.06)) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .feat-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+      transform: translateY(-3px);
+    }
+    .feat-card.teal  { --card-glow: rgba(45,212,191,.08); }
+    .feat-card.indigo { --card-glow: rgba(99,102,241,.08); }
+    .feat-card.cyan  { --card-glow: rgba(56,189,248,.08); }
+
+    .feat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+    .feat-icon.cyan-bg   { background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.2); }
+    .feat-icon.teal-bg   { background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.2); }
+    .feat-icon.indigo-bg { background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2); }
+
+    .feat-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; }
+    .feat-card p  { font-size: .875rem; color: var(--text-secondary); line-height: 1.7; }
+    .feat-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+    .feat-tag {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 6px;
+      padding: 3px 9px;
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── How it works / P2P flow ──────────────────────────────────────────── */
+    .flow-section { background: var(--bg-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .flow-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: start;
+    }
+    @media (max-width: 720px) { .flow-wrap { grid-template-columns: 1fr; gap: 40px; } }
+    .flow-steps { display: flex; flex-direction: column; gap: 16px; margin-top: 36px; }
+    .flow-step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .flow-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+      color: #080c14;
+      font-size: .75rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      margin-top: 2px;
+    }
+    .flow-step-body h4 { font-size: .9rem; font-weight: 600; margin-bottom: 4px; }
+    .flow-step-body p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.6; }
+
+    .code-block {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      line-height: 1.8;
+      color: #64748b;
+      overflow-x: auto;
+      margin-top: 36px;
+      white-space: pre;
+    }
+    .code-block .c-machine { color: #38bdf8; font-weight: 600; }
+    .code-block .c-step    { color: #94a3b8; }
+    .code-block .c-arrow   { color: #2dd4bf; }
+    .code-block .c-box     { color: #6366f1; }
+    .code-block .c-ok      { color: #4ade80; }
+
+    /* ── Properties table ─────────────────────────────────────────────────── */
+    .props-section { padding: 96px 0; }
+    .props-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 56px;
+    }
+    .prop-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px 22px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: border-color var(--transition);
+    }
+    .prop-item:hover { border-color: var(--border-accent); }
+    .prop-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      flex-shrink: 0;
+      margin-top: 7px;
+    }
+    .prop-dot.teal   { background: var(--accent-teal); }
+    .prop-dot.indigo { background: var(--accent-blue); }
+    .prop-dot.green  { background: #4ade80; }
+    .prop-item h4 { font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+    .prop-item p  { font-size: .8rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── CLI / Docker ─────────────────────────────────────────────────────── */
+    .cli-section { background: var(--bg-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .cli-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: start;
+    }
+    @media (max-width: 720px) { .cli-inner { grid-template-columns: 1fr; gap: 40px; } }
+    .terminal {
+      background: #030811;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 36px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+    }
+    .terminal-bar {
+      background: #0d1524;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .terminal-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .t-red    { background: #ff5f57; }
+    .t-yellow { background: #febc2e; }
+    .t-green  { background: #28c840; }
+    .terminal-body { padding: 18px 20px; line-height: 1.8; }
+    .t-prompt { color: #2dd4bf; }
+    .t-cmd    { color: #f0f6ff; }
+    .t-flag   { color: #38bdf8; }
+    .t-val    { color: #a5f3fc; }
+    .t-comment{ color: #334155; }
+    .t-out    { color: #4ade80; }
+    .t-line   { display: block; }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+    }
+    .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ── Responsive tweaks ────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      section { padding: 64px 0; }
+      .hero   { padding: 72px 0 48px; }
+      .nav-links { display: none; }
+      .dl-grid { flex-direction: column; align-items: center; }
+      .dl-btn  { width: 100%; max-width: 320px; justify-content: center; }
+    }
+
+    /* ── Utility ──────────────────────────────────────────────────────────── */
+    .text-center { text-align: center; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="#top">
+      <img src="./icon.png" alt="Direct Connector icon" />
+      Direct Connector
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#cli">CLI &amp; Docker</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.5-.3-5.1-1.3-5.1-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.2 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.7 21.4 24 17.1 24 12c0-6.3-5.2-11.5-12-11.5z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-badge">
+      <span></span>
+      Open Source · Free Forever
+    </div>
+
+    <img class="hero-icon" src="./icon.png" alt="Direct Connector app icon" />
+
+    <h1>Secure tunnels.<br />Zero cloud.</h1>
+
+    <p class="hero-sub">
+      Connect any two machines with an encrypted reverse SSH tunnel or a
+      serverless peer-to-peer WebRTC channel — no subscription, no relay,
+      no third-party ever sees your data.
+    </p>
+
+    <div class="hero-pills">
+      <span class="pill accent">No subscription</span>
+      <span class="pill">macOS · Windows · Linux</span>
+      <span class="pill">Docker ready</span>
+      <span class="pill accent">DTLS 1.2 encrypted</span>
+      <span class="pill">Open source</span>
+    </div>
+
+    <!-- Download buttons — populated by JS from latest GitHub release -->
+    <div class="dl-grid" id="dl-buttons">
+      <a class="dl-btn dl-btn-primary dl-btn-loading" id="dl-mac" href="#" download>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+        </svg>
+        <span>
+          Download for macOS
+          <span class="dl-small">Apple Silicon (.app)</span>
+        </span>
+      </a>
+      <a class="dl-btn dl-btn-secondary dl-btn-loading" id="dl-win" href="#" download>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 12V6.75l6-1.32v6.57H3zm17 0V3.75L10 2.06V12h10zM3 13h6v6.43l-6-1.33V13zm7 0h10v8.25L10 19.43V13z"/>
+        </svg>
+        <span>
+          Download for Windows
+          <span class="dl-small">x64 exe</span>
+        </span>
+      </a>
+      <a class="dl-btn dl-btn-secondary dl-btn-loading" id="dl-linux" href="#" download>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.581 19.049c-.55-.446-.336-1.431-.159-2.144.046-.414.059-.83.041-1.244-.015-.743-.108-1.787-.896-2.173-.598-.289-1.416-.079-2.101.488-.929.842-1.691 1.922-2.542 2.913-.424.497-.994.745-1.677.745h-.028a2.16 2.16 0 0 1-1.266-.43l-.056-.043c-.633-.513-1.401-.692-2.14-.624-.289.028-.571.083-.838.165-.195.06-.393.13-.593.211a1.954 1.954 0 0 1-.795.165 1.52 1.52 0 0 1-.87-.269c-.248-.174-.378-.403-.438-.69a4.025 4.025 0 0 0-.175-.569c-.119-.3-.288-.659-.582-.836a2.4 2.4 0 0 0-.51-.199c-.245-.069-.491-.103-.736-.103-.617 0-1.201.216-1.663.617-.326.283-.499.633-.558.999-.044.271-.026.544.037.826.082.326.066.666-.022.982-.198.72-.66 1.312-1.3 1.654-.492.265-.96.387-1.396.387-.307 0-.598-.063-.864-.192a2.47 2.47 0 0 1-.641-.456C.617 18.021.5 16.935.5 16c0-2.19.615-4.35 1.776-6.257C3.499 7.777 5.371 6.26 7.527 5.5c.21-.073.424-.13.641-.167l.014-.002a5.286 5.286 0 0 1 .718-.052c1.259 0 2.426.514 3.393 1.148.422.275.806.575 1.143.89.34.316.64.645.896.976.384.502.64 1.023.76 1.5.074.299.105.614.115.886.006.179.008.357.01.536v.034c0 .245-.008.491-.029.74-.051.559-.171 1.099-.361 1.489-.151.312-.349.558-.52.748-.199.222-.416.392-.617.534-.454.316-.884.574-1.291.798l-.218.121a6.665 6.665 0 0 0-.483.302c-.157.108-.297.225-.398.347-.091.108-.152.228-.169.355-.012.093-.004.188.037.271.119.245.426.397.826.397.113 0 .229-.013.343-.039.26-.058.516-.185.77-.385.108-.085.215-.184.325-.299.224-.238.463-.543.719-.885l.172-.231c.321-.431.674-.823 1.063-1.099.278-.196.584-.32.905-.32.244 0 .491.065.7.205.28.188.493.489.577.832.051.205.059.421.02.637-.037.208-.114.413-.224.607-.239.424-.617.792-1.097 1.04-.393.203-.883.34-1.488.34-.279 0-.58-.029-.907-.093a6.53 6.53 0 0 1-1.007-.284l-.179-.064c-.374-.136-.719-.201-1.045-.201-.569 0-1.073.177-1.491.527-.362.305-.565.704-.704 1.07a4.27 4.27 0 0 0-.207.753c-.042.249-.055.495-.041.737.032.553.188 1.08.453 1.483.21.317.479.557.775.683a2.41 2.41 0 0 0 .955.189c.459 0 .99-.126 1.58-.399l.1-.047c.374-.176.746-.267 1.105-.267.309 0 .612.063.899.189.316.138.597.353.819.637.085.109.163.228.231.358.073.141.131.295.152.461.012.1.008.208-.014.313-.077.374-.388.617-.794.617-.17 0-.347-.044-.523-.136a2.083 2.083 0 0 1-.39-.278l-.103-.095a2.04 2.04 0 0 0-.275-.214.99.99 0 0 0-.489-.13c-.264 0-.517.098-.719.277-.215.19-.378.467-.443.805-.021.111-.032.225-.029.34.01.291.108.563.276.762.284.335.743.535 1.284.535.279 0 .579-.053.89-.162.499-.174 1.011-.491 1.505-.849A9.988 9.988 0 0 0 22 12.001c0-.965-.136-1.9-.389-2.787-.208-.722-.511-1.41-.893-2.05a9.991 9.991 0 0 0-3.178-3.264 9.946 9.946 0 0 0-5.039-1.4c-.93 0-1.866.127-2.777.381-1.468.41-2.8 1.15-3.914 2.109A9.975 9.975 0 0 0 3.5 12c0 2.757 1.117 5.255 2.926 7.07z"/>
+        </svg>
+        <span>
+          CLI for Linux
+          <span class="dl-small">amd64 headless binary</span>
+        </span>
+      </a>
+    </div>
+
+    <p class="dl-note mt-16" id="dl-version">
+      Loading latest release from
+      <a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">GitHub Releases</a>…
+    </p>
+
+    <p class="dl-note mt-8">
+      macOS CLI &amp; Docker image also available ·
+      <a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">All downloads →</a>
+    </p>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── Features ───────────────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <div class="s-label">Three tunnel modes</div>
+    <h2 class="s-title">Every way to connect,<br />without locking you in.</h2>
+    <p class="s-body">
+      Each tunnel method works independently. Use one, use all three — the app keeps
+      your settings and reconnects automatically.
+    </p>
+
+    <div class="features-grid">
+
+      <!-- SSH Tunnel -->
+      <div class="feat-card cyan">
+        <div class="feat-icon cyan-bg">🔐</div>
+        <h3>SSH Reverse Tunnel</h3>
+        <p>
+          Creates a persistent, self-healing reverse SSH tunnel to any jump host you control.
+          Automatic reconnect with 5-second back-off. Survives sleep, network changes, and
+          interrupted connections without any action from you.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">port 443</span>
+          <span class="feat-tag">Ed25519 keys</span>
+          <span class="feat-tag">one-click install</span>
+          <span class="feat-tag">IPv6</span>
+          <span class="feat-tag">WSL SSH</span>
+        </div>
+      </div>
+
+      <!-- P2P -->
+      <div class="feat-card teal">
+        <div class="feat-icon teal-bg">🌐</div>
+        <h3>Serverless P2P Tunnel</h3>
+        <p>
+          A 100 % serverless peer-to-peer encrypted channel using WebRTC DataChannels and
+          ICE — the same stack your browser uses for video calls. Exchange one text blob
+          between machines, click Connect, and you're done. Nothing touches a third-party server.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">DTLS 1.2</span>
+          <span class="feat-tag">WebRTC</span>
+          <span class="feat-tag">STUN / TURN</span>
+          <span class="feat-tag">copy-paste SDP</span>
+          <span class="feat-tag">ICE-TCP</span>
+        </div>
+      </div>
+
+      <!-- Relay -->
+      <div class="feat-card indigo">
+        <div class="feat-icon indigo-bg">⚡</div>
+        <h3>Embedded TURN Relay</h3>
+        <p>
+          Run your own TURN relay server directly inside the app — no separate service or
+          cloud account needed. Generates time-limited HMAC credentials automatically, supports
+          UDP and TCP, and streams live relay logs.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">pion/turn</span>
+          <span class="feat-tag">UDP + TCP</span>
+          <span class="feat-tag">HMAC credentials</span>
+          <span class="feat-tag">public IP discovery</span>
+        </div>
+      </div>
+
+      <!-- Key installer -->
+      <div class="feat-card cyan">
+        <div class="feat-icon cyan-bg">🔑</div>
+        <h3>One-click Key Installer</h3>
+        <p>
+          No need to copy keys manually or open a terminal. The app generates an app-managed
+          Ed25519 keypair, dials your server, and installs the public key into
+          <code style="font-family:'JetBrains Mono',monospace;font-size:.82em;color:#38bdf8">~/.ssh/authorized_keys</code>
+          — all in a guided in-app wizard with password and fingerprint prompts.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Ed25519</span>
+          <span class="feat-tag">x/crypto/ssh</span>
+          <span class="feat-tag">fingerprint UI</span>
+        </div>
+      </div>
+
+      <!-- Cross-platform -->
+      <div class="feat-card teal">
+        <div class="feat-icon teal-bg">🖥️</div>
+        <h3>Native on Every Platform</h3>
+        <p>
+          macOS gets a real menu-bar status item (Obj-C/CGO, no delegate conflict).
+          Windows gets a system tray. The GUI uses Wails v2 — a native WebView, not Electron,
+          so the binary is small and feels at home on each OS.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Wails v2</span>
+          <span class="feat-tag">macOS tray</span>
+          <span class="feat-tag">Windows tray</span>
+          <span class="feat-tag">~10 MB</span>
+        </div>
+      </div>
+
+      <!-- CLI / Docker -->
+      <div class="feat-card indigo">
+        <div class="feat-icon indigo-bg">🐳</div>
+        <h3>CLI &amp; Docker</h3>
+        <p>
+          The same tunnelling engine compiles to a fully static headless binary — no GUI,
+          no OpenGL, no CGO. Ship it in a Docker <code style="font-family:'JetBrains Mono',monospace;font-size:.82em;color:#818cf8">FROM scratch</code> image
+          (~10 MB) and configure entirely via environment variables.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">CGO_ENABLED=0</span>
+          <span class="feat-tag">FROM scratch</span>
+          <span class="feat-tag">DC_* env vars</span>
+          <span class="feat-tag">docker compose</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── How P2P works ──────────────────────────────────────────────────────── -->
+<section class="flow-section" id="how-it-works">
+  <div class="container">
+    <div class="flow-wrap">
+      <div>
+        <div class="s-label">P2P connection flow</div>
+        <h2 class="s-title">Two machines.<br />One text blob.<br />Direct channel.</h2>
+        <p class="s-body">
+          The P2P tunnel uses the same NAT traversal technique browsers use for
+          video calls — ICE + STUN. No server handles your traffic. After the
+          initial handshake, every byte goes machine-to-machine over an encrypted
+          DTLS 1.2 DataChannel.
+        </p>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-step-body">
+              <h4>Consumer generates an Offer</h4>
+              <p>Enter the ports to expose locally, click "Generate Offer", and copy the short base64 blob.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-step-body">
+              <h4>Provider accepts and answers</h4>
+              <p>Paste the Offer on the Provider machine, click "Accept &amp; Generate Answer", and copy the Answer blob back.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-step-body">
+              <h4>Consumer connects</h4>
+              <p>Paste the Answer and click "Connect". ICE negotiates a direct path — behind NAT, through firewalls, over IPv4 or IPv6.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-step-body">
+              <h4>Encrypted tunnel is live</h4>
+              <p>All traffic flows direct. Zero bytes go through any server. The tunnel stays up until you stop it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="code-block"><span class="c-machine">Consumer machine</span>                 <span class="c-machine">Provider machine</span>
+<span class="c-comment">─────────────────                 ────────────────</span>
+<span class="c-step">Enter ports</span>
+<span class="c-step">Click "Generate Offer"</span>
+<span class="c-arrow">── base64 blob ─────────────────▶</span>  <span class="c-step">Paste Offer</span>
+                                  <span class="c-step">Click "Accept &amp; Generate Answer"</span>
+<span class="c-arrow">◀──────────────── base64 blob ──  </span><span class="c-step">Copy Answer</span>
+<span class="c-step">Paste Answer</span>
+<span class="c-step">Click "Connect"</span>
+
+<span class="c-box">╔══════════════════════════════════════╗</span>
+<span class="c-box">║</span>  <span class="c-ok">Direct DTLS-encrypted channel</span>       <span class="c-box">║</span>
+<span class="c-box">║</span>  <span class="c-ok">Zero bytes through any server</span>       <span class="c-box">║</span>
+<span class="c-box">╚══════════════════════════════════════╝</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Properties ─────────────────────────────────────────────────────────── -->
+<section class="props-section">
+  <div class="container">
+    <div class="text-center">
+      <div class="s-label">Technical properties</div>
+      <h2 class="s-title">Built for correctness.</h2>
+    </div>
+    <div class="props-grid">
+      <div class="prop-item">
+        <div class="prop-dot"></div>
+        <div>
+          <h4>DTLS 1.2 end-to-end encryption</h4>
+          <p>WebRTC mandates DTLS on every DataChannel. All P2P traffic is encrypted between the two peers — not terminated at a relay.</p>
+        </div>
+      </div>
+      <div class="prop-item">
+        <div class="prop-dot teal"></div>
+        <div>
+          <h4>ICE NAT traversal</h4>
+          <p>Works through most home and office routers via STUN. Optionally add TURN servers — including the built-in relay — for symmetric NAT / CGNAT.</p>
+        </div>
+      </div>
+      <div class="prop-item">
+        <div class="prop-dot indigo"></div>
+        <div>
+          <h4>SSH auto-reconnect</h4>
+          <p>Spawns the system <code style="font-family:'JetBrains Mono',monospace;font-size:.85em">ssh</code> binary and monitors it. Reconnects after 5 seconds on any disconnect, indefinitely.</p>
+        </div>
+      </div>
+      <div class="prop-item">
+        <div class="prop-dot green"></div>
+        <div>
+          <h4>Race-safe Go backend</h4>
+          <p>All shared state is guarded by <code style="font-family:'JetBrains Mono',monospace;font-size:.85em">sync.Mutex</code>. The full test suite runs with <code style="font-family:'JetBrains Mono',monospace;font-size:.85em">-race</code> on every CI run.</p>
+        </div>
+      </div>
+      <div class="prop-item">
+        <div class="prop-dot"></div>
+        <div>
+          <h4>No internet required for P2P</h4>
+          <p>Once both peers exchange the SDP blob, no further internet access is needed. The connection is direct even on a local network.</p>
+        </div>
+      </div>
+      <div class="prop-item">
+        <div class="prop-dot teal"></div>
+        <div>
+          <h4>Persistent config</h4>
+          <p>Settings saved to the OS-native config directory. Keys, host, ports, and all preferences survive app restarts.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLI & Docker ───────────────────────────────────────────────────────── -->
+<section class="cli-section" id="cli">
+  <div class="container">
+    <div class="cli-inner">
+      <div>
+        <div class="s-label">CLI &amp; Docker</div>
+        <h2 class="s-title">No display?<br />No problem.</h2>
+        <p class="s-body">
+          The exact same tunnelling engine — SSH, P2P consumer/provider, and keygen —
+          compiles to a static binary with zero CGO. Run it on a headless server,
+          in a container, or inside a Docker Compose stack.
+          Every flag reads from a <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:#38bdf8">DC_*</code> environment variable.
+        </p>
+        <p class="s-body mt-16">
+          The Docker image is built in two stages and runs
+          <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:#818cf8">FROM scratch</code>
+          — just the binary and CA certs. Final size: ~10 MB.
+        </p>
+      </div>
+      <div>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot t-red"></div>
+            <div class="terminal-dot t-yellow"></div>
+            <div class="terminal-dot t-green"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="t-line"><span class="t-comment"># SSH tunnel — environment-variable style</span></span>
+            <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">docker run</span> <span class="t-flag">--rm</span> \</span>
+            <span class="t-line">    <span class="t-flag">-e</span> <span class="t-val">DC_MODE=ssh</span> \</span>
+            <span class="t-line">    <span class="t-flag">-e</span> <span class="t-val">DC_HOST=jump.example.com</span> \</span>
+            <span class="t-line">    <span class="t-flag">-e</span> <span class="t-val">DC_PORT=443</span> \</span>
+            <span class="t-line">    <span class="t-flag">-e</span> <span class="t-val">DC_USER=admin</span> \</span>
+            <span class="t-line">    <span class="t-flag">-e</span> <span class="t-val">DC_PORTS=1883,3391</span> \</span>
+            <span class="t-line">    <span class="t-flag">-v</span> <span class="t-val">dc-config:/config</span> \</span>
+            <span class="t-line">    direct-connector:latest</span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-comment"># P2P provider (file-based SDP for compose)</span></span>
+            <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">./direct-connector-cli</span> \</span>
+            <span class="t-line">    <span class="t-flag">--mode</span> <span class="t-val">p2p-provider</span> \</span>
+            <span class="t-line">    <span class="t-flag">--offer-in</span> <span class="t-val">/data/offer.txt</span> \</span>
+            <span class="t-line">    <span class="t-flag">--answer-out</span> <span class="t-val">/data/answer.txt</span></span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-out">✓ tunnel connected — forwarding 1883,3391</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <img src="./icon.png" alt="" />
+      <span>Direct Connector — unlicensed, use freely.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/el-j/directConnector/actions" target="_blank" rel="noopener">CI</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+  // ── Populate download buttons from the latest GitHub release ──────────────
+  const REPO = 'el-j/directConnector';
+
+  const ASSET_MAP = {
+    mac:   ['direct-connector-mac.zip'],
+    win:   ['direct-connector-windows.exe'],
+    linux: ['direct-connector-linux-amd64'],
+  };
+
+  async function loadRelease() {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+        headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const tag = data.tag_name || '';
+      const byName = {};
+      (data.assets || []).forEach(a => { byName[a.name] = a.browser_download_url; });
+
+      const versionEl = document.getElementById('dl-version');
+      if (versionEl) {
+        versionEl.innerHTML = `Latest release: <a href="${data.html_url}" target="_blank" rel="noopener"><strong>${tag}</strong></a> · <a href="https://github.com/${REPO}/releases" target="_blank" rel="noopener">All releases →</a>`;
+      }
+
+      function wire(id, candidates) {
+        const btn = document.getElementById(`dl-${id}`);
+        if (!btn) return;
+        for (const name of candidates) {
+          if (byName[name]) {
+            btn.href = byName[name];
+            btn.removeAttribute('download');
+            btn.classList.remove('dl-btn-loading');
+            return;
+          }
+        }
+        // No asset found yet — link to the releases page
+        btn.href = `https://github.com/${REPO}/releases/latest`;
+        btn.classList.remove('dl-btn-loading');
+      }
+
+      wire('mac',   ASSET_MAP.mac);
+      wire('win',   ASSET_MAP.win);
+      wire('linux', ASSET_MAP.linux);
+
+    } catch (e) {
+      // Graceful fallback — link all buttons to the releases page
+      const versionEl = document.getElementById('dl-version');
+      if (versionEl) {
+        versionEl.innerHTML = `<a href="https://github.com/${REPO}/releases" target="_blank" rel="noopener">View all releases on GitHub →</a>`;
+      }
+      ['mac','win','linux'].forEach(id => {
+        const btn = document.getElementById(`dl-${id}`);
+        if (btn) {
+          btn.href = `https://github.com/${REPO}/releases/latest`;
+          btn.classList.remove('dl-btn-loading');
+        }
+      });
+    }
+  }
+
+  loadRelease();
+</script>
+
+</body>
+</html>

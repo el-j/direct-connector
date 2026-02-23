@@ -1,5 +1,10 @@
 # Direct Connector
 
+[![CI](https://github.com/el-j/directConnector/actions/workflows/ci.yml/badge.svg)](https://github.com/el-j/directConnector/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/badge/website-el--j.github.io%2FdirectConnector-38bdf8)](https://el-j.github.io/directConnector/)
+
+**[🌐 Project website & downloads →](https://el-j.github.io/directConnector/)**
+
 A cross-platform desktop app for creating secure tunnels between two machines — with **no cloud dependency and no subscription**.
 
 The primary GUI is built with [Go](https://go.dev) + [Wails v2](https://wails.io) (Vue 3 + TypeScript + Tailwind CSS), packaged as a native `.app` on macOS and a standalone `.exe` on Windows.  

@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+
+# Default: read-only; jobs that need more declare it explicitly.
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1. TESTS — ubuntu runner (fast, cheap).  Runs on every push and PR.
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Reads the exact version from "go 1.24.0" in app-wails/go.mod
+          go-version-file: app-wails/go.mod
+          cache-dependency-path: |
+            app-wails/go.sum
+            app/go.sum
+
+      # Test the app-wails internal packages only.
+      # The main package imports the Wails WebView runtime which requires
+      # WebKit/GTK headers not installed on a stock ubuntu runner.
+      - name: Test app-wails (internal packages)
+        working-directory: app-wails
+        run: go test -race -count=1 -v ./internal/...
+
+      # Test the app (legacy Fyne / CLI) module.
+      # -tags nofyne skips the Fyne GUI source files (no OpenGL / CGO needed).
+      - name: Test app (CLI / legacy module)
+        working-directory: app
+        run: go test -race -count=1 -v -tags nofyne ./...
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2. BUILD — macOS arm64 runner (Apple Silicon).
+  #    • macOS .app   — native Wails GUI bundle
+  #    • Windows .exe — Wails GUI, cross-compiled via mingw-w64
+  #    • macOS CLI    — headless binary, CGO_ENABLED=0
+  #    • Linux  CLI   — headless binary, GOOS=linux GOARCH=amd64, CGO_ENABLED=0
+  # ─────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    needs: test
+    runs-on: macos-latest  # macos-15 arm64 (Apple Silicon) as of early 2026
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app-wails/go.mod
+          cache-dependency-path: |
+            app-wails/go.sum
+            app/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app-wails/frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # Cache Homebrew bottle downloads so the mingw-w64 install is fast on
+      # repeated runs (the ~500 MB toolchain only downloads once per cache key).
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: brew-mingw-${{ runner.arch }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: brew-mingw-${{ runner.arch }}-
+
+      - name: Install mingw-w64 (Windows cross-compiler)
+        run: brew install mingw-w64
+
+      - name: Install frontend dependencies
+        working-directory: app-wails/frontend
+        run: npm ci
+
+      # ── macOS GUI bundle ────────────────────────────────────────────────────
+      - name: Build macOS app (arm64)
+        run: make wails-mac
+
+      # The .app bundle is a directory — zip it so GitHub can serve it as a
+      # single downloadable file and preserve symlinks inside the bundle.
+      - name: Zip macOS .app bundle
+        run: |
+          cd dist
+          zip -r --symlinks direct-connector-mac.zip direct-connector-mac.app
+
+      # ── Windows GUI exe ─────────────────────────────────────────────────────
+      - name: Build Windows exe (cross-compiled amd64)
+        run: make wails-windows
+
+      # ── Headless CLI binaries ───────────────────────────────────────────────
+      - name: Build CLI — macOS arm64 (headless, no GUI)
+        run: |
+          cd app && ./build.sh cli
+          # Rename to include OS/arch so download names are unambiguous.
+          mv ../dist/direct-connector-cli ../dist/direct-connector-cli-darwin-arm64
+
+      - name: Build CLI — Linux amd64 (headless, cross-compiled)
+        run: cd app && ./build.sh linux
+        # Output: dist/direct-connector-linux-amd64
+
+      # ── Build summary (visible in Actions UI) ──────────────────────────────
+      - name: Write build summary
+        run: |
+          echo "## Build artefacts" >> "$GITHUB_STEP_SUMMARY"
+          echo ""                   >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Size |"   >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|"         >> "$GITHUB_STEP_SUMMARY"
+          for f in dist/*; do
+            [[ -d "$f" ]] && continue
+            printf "| \`%s\` | %s |\n" \
+              "$(basename "$f")" \
+              "$(du -sh "$f" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # ── Upload artifacts ────────────────────────────────────────────────────
+      - name: Upload — macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-connector-mac
+          path: dist/direct-connector-mac.zip
+          if-no-files-found: error
+
+      - name: Upload — Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-connector-windows
+          path: dist/direct-connector-windows.exe
+          if-no-files-found: error
+
+      - name: Upload — CLI macOS arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-connector-cli-darwin-arm64
+          path: dist/direct-connector-cli-darwin-arm64
+          if-no-files-found: error
+
+      - name: Upload — CLI Linux amd64
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-connector-cli-linux-amd64
+          path: dist/direct-connector-linux-amd64
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 3. PAGES — deploy docs/ to GitHub Pages on every push to main/master.
+  #    Enable GitHub Pages in repo Settings → Pages → Source: GitHub Actions.
+  # ─────────────────────────────────────────────────────────────────────────────
+  pages:
+    name: Deploy GitHub Pages
+    needs: test
+    # Only deploy from the default branch, never from PRs or other branches.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write       # required to deploy to GitHub Pages
+      id-token: write    # required by actions/deploy-pages (OIDC token)
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact (docs/)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 4. RELEASE — only on semver tags (e.g. v1.2.3, v1.0.0-rc1).
+  #    Downloads all build artefacts and publishes a GitHub Release.
+  # ─────────────────────────────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required to create releases and upload assets
+
+    steps:
+      # Download every artifact into a flat artifacts/ directory.
+      - name: Download all build artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artefacts
+        run: ls -lh artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Auto-generates release notes from merged PRs and commits since last tag.
+          generate_release_notes: true
+          files: |
+            artifacts/direct-connector-mac.zip
+            artifacts/direct-connector-windows.exe
+            artifacts/direct-connector-cli-darwin-arm64
+            artifacts/direct-connector-linux-amd64
