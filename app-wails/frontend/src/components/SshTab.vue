@@ -6,7 +6,11 @@ import {
   AppKeyExists, GenerateAppKey, LoadPublicKey, AppPrivateKeyPath,
   BrowseFile, CopyToClipboard,
   StartTunnel, StopTunnel, IsTunnelRunning,
+  SSHSetupStart, SSHSetupReply, SSHSetupCancel,
 } from '../../wailsjs/go/main/App'
+
+// ── Types ────────────────────────────────────────────────────────────────────
+type SetupPrompt = { kind: 'fingerprint' | 'password'; message: string; fingerprint: string }
 
 // ── State ────────────────────────────────────────────────────────────────────
 const form = reactive({
@@ -29,6 +33,13 @@ const logBox   = ref<HTMLElement | null>(null)
 const keyExists  = ref(false)
 const publicKey  = ref('')
 const privKey    = ref('')
+
+const setupBusy    = ref(false)
+const setupPrompt  = ref<SetupPrompt | null>(null)
+const setupReply   = ref('')
+const setupSuccess = ref<boolean | null>(null)
+const setupMessage = ref('')
+const setupInput   = ref<HTMLInputElement | null>(null)
 
 // ── Computed ─────────────────────────────────────────────────────────────────
 const statusClass = computed(() => {
@@ -68,12 +79,42 @@ onMounted(async () => {
 
   EventsOn('tunnel:status', (s: string) => { status.value = s })
   EventsOn('tunnel:log',    (msg: string) => appendLog(msg))
+
+  EventsOn('setup:log',    (msg: string) => appendLog('⚙ ' + msg))
+  EventsOn('setup:prompt', (p: SetupPrompt) => {
+    setupPrompt.value = p
+    setupReply.value  = ''
+    nextTick(() => setupInput.value?.focus())
+  })
+  EventsOn('setup:done', (r: { ok: boolean; message: string }) => {
+    setupBusy.value    = false
+    setupPrompt.value  = null
+    setupSuccess.value = r.ok
+    setupMessage.value = r.message
+    if (r.ok) {
+      appendLog('✅ ' + r.message)
+      // Refresh key state in case the setup generated a new keypair.
+      AppKeyExists().then(exists => {
+        keyExists.value = exists
+        if (exists) {
+          LoadPublicKey().then(pk => { publicKey.value = pk })
+          AppPrivateKeyPath().then(p => { privKey.value = p })
+        }
+      })
+    } else {
+      appendLog('❌ ' + r.message)
+    }
+  })
+
   appendLog('Ready. Configure the connection and press START TUNNEL.')
 })
 
 onUnmounted(() => {
   EventsOff('tunnel:status')
   EventsOff('tunnel:log')
+  EventsOff('setup:log')
+  EventsOff('setup:prompt')
+  EventsOff('setup:done')
 })
 
 // ── Key management ────────────────────────────────────────────────────────────
@@ -96,6 +137,45 @@ async function copyPublicKey() {
 async function browseKey() {
   const p = await BrowseFile('Select SSH Private Key', '')
   if (p) form.keyPath = p
+}
+
+// ── Setup (key install) ───────────────────────────────────────────────────────
+async function startSetup(): Promise<void> {
+  const errs: string[] = []
+  if (!form.host.trim()) errs.push('Host / DNS is required')
+  if (!form.user.trim()) errs.push('Username is required')
+  if (!form.port.trim()) errs.push('SSH Port is required')
+  if (errs.length) { appendLog('⚠  ' + errs.join(' | ')); return }
+
+  setupBusy.value    = true
+  setupSuccess.value = null
+  setupMessage.value = ''
+  let keyPath = form.keyPath.trim()
+  if (!keyPath && keyExists.value) keyPath = privKey.value
+  const err = await SSHSetupStart({
+    host: form.host, port: form.port, user: form.user,
+    forwardPorts: form.forwardPorts, ipVersion: form.ipVersion,
+    forwardMode: form.forwardMode, verbose: form.verbose,
+    useWslSsh: form.useWSLSsh, keyPath,
+  })
+  if (err) {
+    setupBusy.value    = false
+    setupSuccess.value = false
+    setupMessage.value = err
+    appendLog('❌ Setup error: ' + err)
+  }
+}
+
+async function sendReply(): Promise<void> {
+  const answer = setupReply.value
+  setupReply.value = ''
+  await SSHSetupReply(answer)
+}
+
+async function cancelSetup(): Promise<void> {
+  await SSHSetupCancel()
+  setupBusy.value   = false
+  setupPrompt.value = null
 }
 
 // ── Tunnel start / stop ───────────────────────────────────────────────────────
@@ -231,6 +311,33 @@ async function toggleTunnel() {
             ⎘ Copy Public Key
           </button>
         </div>
+
+        <!-- Setup Connection button -->
+        <div v-show="!running">
+          <button @click="startSetup" :disabled="setupBusy || running"
+            class="w-full py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40"
+            :class="(setupBusy || running)
+              ? 'bg-amber-600/10 border-amber-500/30 text-amber-500/60'
+              : 'bg-amber-600/20 border-amber-500/50 text-amber-300 hover:bg-amber-600/30'">
+            ⚡ Setup Connection (Install Key)
+          </button>
+        </div>
+
+        <!-- Setup status feedback -->
+        <div v-show="setupBusy && !setupPrompt" class="flex items-center gap-2 text-xs text-yellow-400">
+          <svg class="animate-spin w-3.5 h-3.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <span>Setting up…</span>
+        </div>
+        <div v-show="setupSuccess === true" class="flex items-center gap-1.5 text-xs text-emerald-400">
+          <span>✅</span><span>{{ setupMessage }}</span>
+        </div>
+        <div v-show="setupSuccess === false" class="flex items-center gap-1.5 text-xs text-red-400">
+          <span>❌</span><span>{{ setupMessage }}</span>
+        </div>
+
         <textarea v-if="keyExists" :value="publicKey" readonly rows="2"
           class="w-full bg-gray-900 border border-gray-700/60 rounded-lg px-3 py-2 text-xs font-mono text-gray-400 resize-none focus:outline-none" />
       </div>
@@ -251,6 +358,65 @@ async function toggleTunnel() {
       </div>
 
     </div>
+
+    <!-- ── Setup prompt modal ────────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div v-show="setupPrompt !== null"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div class="w-[480px] bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-6 space-y-4">
+
+          <!-- Title -->
+          <h2 class="text-base font-semibold text-white">
+            {{ setupPrompt?.kind === 'fingerprint' ? '🔑 Fingerprint Confirmation' : '🔒 Password Required' }}
+          </h2>
+
+          <!-- Message -->
+          <p v-show="setupPrompt?.kind === 'fingerprint'"
+            class="text-xs font-mono text-gray-300 bg-gray-900/60 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all">
+            {{ setupPrompt?.message }}
+          </p>
+          <p v-show="setupPrompt?.kind === 'password'"
+            class="text-sm text-gray-300 leading-relaxed">
+            {{ setupPrompt?.message }}
+          </p>
+
+          <!-- Fingerprint actions -->
+          <div v-show="setupPrompt?.kind === 'fingerprint'" class="flex gap-3">
+            <button @click="setupReply = 'yes'; sendReply()"
+              class="flex-1 py-2 text-sm font-semibold rounded-lg bg-emerald-600/20 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-600/30 transition-colors">
+              ✓ Yes, trust &amp; continue
+            </button>
+            <button @click="setupReply = 'no'; sendReply()"
+              class="flex-1 py-2 text-sm font-semibold rounded-lg bg-red-600/20 border border-red-500/50 text-red-400 hover:bg-red-600/30 transition-colors">
+              ✕ No / Abort
+            </button>
+          </div>
+
+          <!-- Password input + action -->
+          <div v-show="setupPrompt?.kind === 'password'" class="space-y-3">
+            <input
+              ref="setupInput"
+              type="password"
+              v-model="setupReply"
+              @keyup.enter="sendReply()"
+              placeholder="Enter password…"
+              class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors" />
+            <button @click="sendReply()"
+              class="w-full py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+              Authenticate
+            </button>
+          </div>
+
+          <!-- Cancel link -->
+          <div class="text-center">
+            <button @click="cancelSetup()"
+              class="text-xs text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-2">
+              Cancel setup
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- ── Right: Status + Log ─────────────────────────────────────────────── -->
     <div class="flex-1 flex flex-col p-4 gap-3 min-w-0 bg-gray-900">

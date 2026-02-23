@@ -97,7 +97,9 @@ func (m *Manager) Stop() {
 		m.cancelFunc()
 	}
 	if m.sshCmd != nil && m.sshCmd.Process != nil {
+		pid := m.sshCmd.Process.Pid
 		_ = m.sshCmd.Process.Kill()
+		killProcessTree(pid) // Windows: kills wsl.exe + all children; no-op elsewhere
 	}
 	m.mu.Unlock()
 

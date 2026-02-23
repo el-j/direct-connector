@@ -22,6 +22,10 @@ export function GenerateAppKey() {
   return window['go']['main']['App']['GenerateAppKey']();
 }
 
+export function GetPublicIP() {
+  return window['go']['main']['App']['GetPublicIP']();
+}
+
 export function IsTunnelRunning() {
   return window['go']['main']['App']['IsTunnelRunning']();
 }
@@ -50,8 +54,48 @@ export function P2PProvideAnswer(arg1) {
   return window['go']['main']['App']['P2PProvideAnswer'](arg1);
 }
 
+export function P2PSetConfig(arg1) {
+  return window['go']['main']['App']['P2PSetConfig'](arg1);
+}
+
 export function P2PStop() {
   return window['go']['main']['App']['P2PStop']();
+}
+
+export function RelayGetCredentials() {
+  return window['go']['main']['App']['RelayGetCredentials']();
+}
+
+export function RelayIsRunning() {
+  return window['go']['main']['App']['RelayIsRunning']();
+}
+
+export function RelayStart(arg1) {
+  return window['go']['main']['App']['RelayStart'](arg1);
+}
+
+export function RelayStop() {
+  return window['go']['main']['App']['RelayStop']();
+}
+
+export function SSHCheckKeyAuth(arg1) {
+  return window['go']['main']['App']['SSHCheckKeyAuth'](arg1);
+}
+
+export function SSHSetupBusy() {
+  return window['go']['main']['App']['SSHSetupBusy']();
+}
+
+export function SSHSetupCancel() {
+  return window['go']['main']['App']['SSHSetupCancel']();
+}
+
+export function SSHSetupReply(arg1) {
+  return window['go']['main']['App']['SSHSetupReply'](arg1);
+}
+
+export function SSHSetupStart(arg1) {
+  return window['go']['main']['App']['SSHSetupStart'](arg1);
 }
 
 export function SaveConfig(arg1) {

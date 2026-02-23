@@ -56,6 +56,21 @@ All exported methods on `App` (`app-wails/app.go`) become async TypeScript funct
 - `internal/tunnel` — wraps `os/exec` SSH process with `tunnel.Manager`; emits `tunnel.Status` via `OnStatus`/`OnLog` callbacks; handles automatic reconnect.
 - `internal/p2p` — WebRTC via `github.com/pion/webrtc/v3`; SDP blobs are base64-encoded JSON for copy-paste exchange; STUN used only for NAT discovery (no relay traffic).
 - `internal/keygen` — Ed25519 keypair generation/loading stored in the config dir.
+- `internal/sshsetup` — one-time SSH public-key installer using pure-Go `x/crypto/ssh`. Handles interactive fingerprint confirmation and password auth via callbacks/channel; used by `App.SSHSetupStart`. Only lives in `app-wails/`.
+
+## First-time SSH connection setup flow
+
+`App.SSHSetupStart` (in `app.go`) provides a one-click "install key" workflow:
+1. Generates the app Ed25519 keypair if absent.
+2. Dials the server via `sshsetup.Installer.Run`, which interactively:
+   - Emits `setup:prompt {kind:"fingerprint", …}` → frontend shows confirmation modal
+   - Emits `setup:prompt {kind:"password", …}` → frontend shows password input
+3. Calls `App.SSHSetupReply(answer)` to unblock the Go channel from any goroutine.
+4. Emits `setup:done {ok, message}` on completion.
+
+Events: `setup:log`, `setup:prompt`, `setup:done`. Reply method: `SSHSetupReply`. Cancel: `SSHSetupCancel`. Auth check (key only): `SSHCheckKeyAuth`.
+
+The `<Teleport to="body">` modal in `SshTab.vue` renders the interactive dialog at `<body>` level, keeping it above all other DOM.
 
 ## Key conventions
 

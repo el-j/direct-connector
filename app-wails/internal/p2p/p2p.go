@@ -1,3 +1,4 @@
+// FILE: app-wails/internal/p2p/p2p.go
 package p2p
 
 import (
@@ -10,7 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	pionice "github.com/pion/ice/v2"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -22,6 +25,12 @@ import (
 var stunServers = []string{
 	"stun:stun.l.google.com:19302",
 	"stun:stun1.l.google.com:19302",
+	// UDP STUN
+	"stun:stun.cloudflare.com:3478",
+	"stun:stun.nextcloud.com:443", // UDP on port 443 (QUIC-friendly)
+	// TCP STUN — required to gather server-reflexive TCP candidates
+	// when TCPMuxPort is set.  Cloudflare STUN reliably supports TCP on 3478.
+	"stun:stun.cloudflare.com:3478?transport=tcp",
 }
 
 // ── SDP encode / decode ────────────────────────────────────────────────────
@@ -66,19 +75,27 @@ func decodeSDP(raw string) (webrtc.SessionDescription, error) {
 // P2PSession manages a single WebRTC session.
 // Create a new one for each connection attempt via NewP2PSession.
 type P2PSession struct {
-	mu         sync.Mutex
-	pc         *webrtc.PeerConnection
-	done       chan struct{}
-	active     bool
-	savedPorts string // set by GenerateOffer; used when Connected fires
+	mu          sync.Mutex
+	pc          *webrtc.PeerConnection
+	done        chan struct{}
+	active      bool
+	savedPorts  string // set by GenerateOffer; used when Connected fires
+	cfg         SessionConfig
+	tcpListener net.Listener // non-nil when TCPMuxPort > 0 and bind succeeded
 
 	OnStatus func(string)
 	OnLog    func(string)
 }
 
-// NewP2PSession returns a fresh, idle session.
+// NewP2PSession returns a fresh, idle session with default ICE parameters.
 func NewP2PSession(onStatus func(string), onLog func(string)) *P2PSession {
-	return &P2PSession{OnStatus: onStatus, OnLog: onLog}
+	return NewP2PSessionWithConfig(SessionConfig{}, onStatus, onLog)
+}
+
+// NewP2PSessionWithConfig returns a fresh, idle session with the supplied ICE
+// tuning parameters.  Use NewP2PSession when the defaults are sufficient.
+func NewP2PSessionWithConfig(cfg SessionConfig, onStatus func(string), onLog func(string)) *P2PSession {
+	return &P2PSession{cfg: cfg, OnStatus: onStatus, OnLog: onLog}
 }
 
 // IsActive reports whether the session is currently live.
@@ -94,10 +111,15 @@ func (s *P2PSession) Stop() {
 	s.active = false
 	pc := s.pc
 	done := s.done
+	ln := s.tcpListener
+	s.tcpListener = nil
 	s.mu.Unlock()
 
 	if pc != nil {
 		_ = pc.Close()
+	}
+	if ln != nil {
+		_ = ln.Close()
 	}
 	if done != nil {
 		select {
@@ -160,9 +182,15 @@ func (s *P2PSession) GenerateOffer(ctx context.Context, ports string) (string, e
 		return "", fmt.Errorf("SetLocalDescription: %w", err)
 	}
 
+	s.emitStatus("Status: Gathering ICE candidates — this takes up to 30 s\u2026")
 	s.emitLog("Gathering ICE candidates (UDP + TCP/443) via STUN — no data sent to any server...")
+	timer := time.NewTimer(s.cfg.gatherTimeout())
+	defer timer.Stop()
 	select {
 	case <-gatherDone:
+	case <-timer.C:
+		s.emitLog(fmt.Sprintf("ICE gather timed out after %.0f s — using candidates collected so far",
+			s.cfg.gatherTimeout().Seconds()))
 	case <-ctx.Done():
 		_ = pc.Close()
 		s.setInactive()
@@ -278,9 +306,15 @@ func (s *P2PSession) AcceptOfferAndGenerateAnswer(ctx context.Context, offerSDP 
 		return "", fmt.Errorf("SetLocalDescription: %w", err)
 	}
 
+	s.emitStatus("Status: Gathering ICE candidates — this takes up to 30 s\u2026")
 	s.emitLog("Gathering ICE candidates (UDP + TCP/443) via STUN — no data sent to any server...")
+	answerTimer := time.NewTimer(s.cfg.gatherTimeout())
+	defer answerTimer.Stop()
 	select {
 	case <-gatherDone:
+	case <-answerTimer.C:
+		s.emitLog(fmt.Sprintf("ICE gather timed out after %.0f s — using candidates collected so far",
+			s.cfg.gatherTimeout().Seconds()))
 	case <-ctx.Done():
 		_ = pc.Close()
 		s.setInactive()
@@ -316,14 +350,66 @@ func (s *P2PSession) createPC() (*webrtc.PeerConnection, error) {
 		webrtc.NetworkTypeTCP6,
 	})
 
+	// ICE keepalive/timeout tuning: detect dead paths quickly while
+	// keeping overhead low on long-idle tunnels.
+	// disconnectedTimeout=5s, failedTimeout=25s, keepAliveInterval=2s
+	se.SetICETimeouts(5*time.Second, 25*time.Second, 2*time.Second)
+
+	// Optional: bind a fixed TCP port for ICE-TCP so the listen address is
+	// predictable (port 443 passes strict firewalls as "HTTPS-like").
+	if s.cfg.TCPMuxPort > 0 {
+		tcpLn, err := net.Listen("tcp4", fmt.Sprintf(":%d", s.cfg.TCPMuxPort))
+		if err != nil {
+			s.emitLog(fmt.Sprintf("TCPMux: cannot bind :%d — %v (continuing without fixed TCP port)",
+				s.cfg.TCPMuxPort, err))
+		} else {
+			mux := pionice.NewTCPMuxDefault(pionice.TCPMuxParams{
+				Listener:       tcpLn,
+				Logger:         nil,
+				ReadBufferSize: 8,
+			})
+			se.SetICETCPMux(mux)
+			s.mu.Lock()
+			s.tcpListener = tcpLn
+			s.mu.Unlock()
+		}
+	}
+
+	// Build the ICE server list: always include diverse STUN servers, and
+	// append any user-configured TURN relays (for symmetric NAT / CGNAT).
+	iceServers := []webrtc.ICEServer{{URLs: stunServers}}
+	for _, t := range s.cfg.TURNServers {
+		iceServers = append(iceServers, webrtc.ICEServer{
+			URLs:           []string{t.URL},
+			Username:       t.Username,
+			Credential:     t.Credential,
+			CredentialType: webrtc.ICECredentialTypePassword,
+		})
+	}
+
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(se))
 
 	pc, err := api.NewPeerConnection(webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{{URLs: stunServers}},
+		ICEServers: iceServers,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("NewPeerConnection: %w", err)
 	}
+
+	// Log each candidate as it is gathered so the user can see what paths
+	// are available (host, srflx via STUN, relay via TURN).
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return // nil signals gathering complete
+		}
+		s.emitLog(fmt.Sprintf("ICE candidate: type=%-4s  proto=%-3s  addr=%s:%d",
+			c.Typ, c.Protocol, c.Address, c.Port))
+	})
+
+	pc.OnICEGatheringStateChange(func(state webrtc.ICEGathererState) {
+		s.emitLog(fmt.Sprintf("ICE gathering state \u2192 %s", state.String()))
+	})
+
 	s.mu.Lock()
 	s.pc = pc
 	s.mu.Unlock()
@@ -340,8 +426,21 @@ func (s *P2PSession) setupStateChange(pc *webrtc.PeerConnection, done chan struc
 			if ports != "" {
 				go startLocalListeners(ports, pc, done, s.OnLog)
 			}
+		case webrtc.PeerConnectionStateFailed:
+			s.emitLog("⚠  ICE Failed — all candidate pairs were rejected.")
+			s.emitLog("   If both sides are behind symmetric NAT / CGNAT, you MUST use a TURN relay.")
+			s.emitLog("   Start the built-in relay on the machine with a public IP (or port-forward),")
+			s.emitLog("   then copy its URL+credentials to the Advanced/TURN section on the OTHER machine.")
+			s.mu.Lock()
+			s.active = false
+			s.mu.Unlock()
+			s.emitStatus("Status: Failed — enable TURN relay and retry")
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
 		case webrtc.PeerConnectionStateDisconnected,
-			webrtc.PeerConnectionStateFailed,
 			webrtc.PeerConnectionStateClosed:
 			s.mu.Lock()
 			s.active = false

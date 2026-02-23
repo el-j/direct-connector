@@ -12,6 +12,8 @@ export function CopyToClipboard(arg1:string):Promise<void>;
 
 export function GenerateAppKey():Promise<string>;
 
+export function GetPublicIP():Promise<string>;
+
 export function IsTunnelRunning():Promise<boolean>;
 
 export function LoadConfig():Promise<main.AppSettings>;
@@ -26,7 +28,27 @@ export function P2PIsActive():Promise<boolean>;
 
 export function P2PProvideAnswer(arg1:string):Promise<string>;
 
+export function P2PSetConfig(arg1:main.P2PSessionConfig):Promise<void>;
+
 export function P2PStop():Promise<void>;
+
+export function RelayGetCredentials():Promise<main.RelayCredentials>;
+
+export function RelayIsRunning():Promise<boolean>;
+
+export function RelayStart(arg1:number):Promise<string>;
+
+export function RelayStop():Promise<void>;
+
+export function SSHCheckKeyAuth(arg1:main.TunnelSettings):Promise<string>;
+
+export function SSHSetupBusy():Promise<boolean>;
+
+export function SSHSetupCancel():Promise<void>;
+
+export function SSHSetupReply(arg1:string):Promise<void>;
+
+export function SSHSetupStart(arg1:main.TunnelSettings):Promise<string>;
 
 export function SaveConfig(arg1:main.AppSettings):Promise<void>;
 

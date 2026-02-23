@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
@@ -17,11 +18,12 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:     "Direct Connector",
-		Width:     960,
-		Height:    680,
-		MinWidth:  820,
-		MinHeight: 560,
+		Title:             "Direct Connector",
+		Width:             960,
+		Height:            680,
+		MinWidth:          820,
+		MinHeight:         560,
+		HideWindowOnClose: true, // belt-and-suspenders on Windows (OnBeforeClose also handles it)
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -29,6 +31,8 @@ func main() {
 		// flash of white during initial load.
 		BackgroundColour: &options.RGBA{R: 17, G: 24, B: 39, A: 255},
 		OnStartup:        app.startup,
+		OnShutdown:       func(_ context.Context) { app.shutdown() },
+		OnBeforeClose:    app.beforeClose,
 		Bind:             []interface{}{app},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarDefault(),
