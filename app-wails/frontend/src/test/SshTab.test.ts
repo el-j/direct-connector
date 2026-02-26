@@ -88,6 +88,38 @@ describe('SshTab toggleTunnel validation', () => {
     expect(App.StartTunnel).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('Host / DNS is required')
   })
+
+  it('blocks start when SSH port is out of range', async () => {
+    vi.mocked(App.LoadConfig).mockResolvedValue({
+      host: 'myhost', port: '99999', user: 'alice', forwardPorts: '1883',
+      ipVersion: '', forwardMode: 'R', verbose: false, useWslSsh: false, keyPath: '',
+    })
+
+    const wrapper = mount(SshTab)
+    await flushPromises()
+
+    await wrapper.find('button.rounded-full').trigger('click')
+    await flushPromises()
+
+    expect(App.StartTunnel).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('65535')
+  })
+
+  it('shows WSL key-path error returned by StartTunnel', async () => {
+    vi.mocked(App.LoadConfig).mockResolvedValue({
+      host: 'myhost', port: '443', user: 'alice', forwardPorts: '1883',
+      ipVersion: '', forwardMode: 'R', verbose: false, useWslSsh: true, keyPath: 'C:\\Users\\test\\key',
+    })
+    vi.mocked(App.StartTunnel).mockResolvedValue('WSL SSH requires a Linux path for the key')
+
+    const wrapper = mount(SshTab)
+    await flushPromises()
+
+    await wrapper.find('button.rounded-full').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('WSL SSH requires a Linux path')
+  })
 })
 
 // ── generateKey ────────────────────────────────────────────────────────────────

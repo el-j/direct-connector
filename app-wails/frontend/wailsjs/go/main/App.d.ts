@@ -28,7 +28,7 @@ export function P2PIsActive():Promise<boolean>;
 
 export function P2PProvideAnswer(arg1:string):Promise<string>;
 
-export function P2PSetConfig(arg1:main.P2PSessionConfig):Promise<void>;
+export function P2PSetConfig(arg1:main.P2PSessionConfig):Promise<string>;
 
 export function P2PStop():Promise<void>;
 
@@ -52,6 +52,6 @@ export function SSHSetupStart(arg1:main.TunnelSettings):Promise<string>;
 
 export function SaveConfig(arg1:main.AppSettings):Promise<void>;
 
-export function StartTunnel(arg1:main.TunnelSettings):Promise<void>;
+export function StartTunnel(arg1:main.TunnelSettings):Promise<string>;
 
 export function StopTunnel():Promise<void>;

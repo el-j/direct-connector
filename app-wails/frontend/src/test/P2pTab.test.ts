@@ -132,6 +132,40 @@ describe('P2pTab genOffer error handling', () => {
       expect(wrapper.text()).toContain('ERROR: ICE gathering timed out')
     }
   })
+
+  it('shows TURN config error when P2PSetConfig returns error', async () => {
+    vi.mocked(App.P2PSetConfig).mockResolvedValue('invalid TURN URL "http://bad": must start with turn: or turns:')
+
+    const wrapper = mount(P2pTab)
+    await flushPromises()
+
+    const portInput = wrapper.find('input[placeholder*="1883"]')
+    if (portInput.exists()) await portInput.setValue('1883')
+
+    const offerBtn = wrapper.findAll('button').find(b => b.text().includes('Generate Offer'))
+    if (offerBtn) {
+      await offerBtn.trigger('click')
+      await flushPromises()
+      expect(wrapper.text()).toContain('invalid TURN URL')
+      expect(App.P2PGenerateOffer).not.toHaveBeenCalled()
+    }
+  })
+
+  it('blocks genOffer when port is out of range', async () => {
+    const wrapper = mount(P2pTab)
+    await flushPromises()
+
+    const portInput = wrapper.find('input[placeholder*="1883"]')
+    if (portInput.exists()) await portInput.setValue('99999')
+
+    const offerBtn = wrapper.findAll('button').find(b => b.text().includes('Generate Offer'))
+    if (offerBtn) {
+      await offerBtn.trigger('click')
+      await flushPromises()
+      expect(App.P2PSetConfig).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('65535')
+    }
+  })
 })
 
 // ── log capping ────────────────────────────────────────────────────────────────
