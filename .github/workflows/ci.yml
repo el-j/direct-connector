@@ -14,6 +14,7 @@ permissions:
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   # 1. TESTS — ubuntu runner (fast, cheap).  Runs on every push and PR.
+  #    All three test suites must pass before build or release can proceed.
   # ─────────────────────────────────────────────────────────────────────────────
   test:
     name: Tests
@@ -30,6 +31,12 @@ jobs:
             app-wails/go.sum
             app/go.sum
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app-wails/frontend/package-lock.json
+
       # Test the app-wails internal packages only.
       # The main package imports the Wails WebView runtime which requires
       # WebKit/GTK headers not installed on a stock ubuntu runner.
@@ -42,6 +49,17 @@ jobs:
       - name: Test app (CLI / legacy module)
         working-directory: app
         run: go test -race -count=1 -v -tags nofyne ./...
+
+      # Install frontend dependencies and run Vitest unit tests.
+      # This must pass before the build job runs so that a failing frontend test
+      # blocks the release just like a failing Go test would.
+      - name: Install frontend dependencies
+        working-directory: app-wails/frontend
+        run: npm ci
+
+      - name: Test frontend (Vitest)
+        working-directory: app-wails/frontend
+        run: npm test
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 2. BUILD — macOS arm64 runner (Apple Silicon).
