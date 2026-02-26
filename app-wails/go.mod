@@ -3,6 +3,7 @@ module direct-connector
 go 1.24.0
 
 require (
+	github.com/energye/systray v1.0.3
 	github.com/pion/ice/v2 v2.3.38
 	github.com/pion/logging v0.2.2
 	github.com/pion/stun v0.6.1
@@ -15,7 +16,6 @@ require (
 require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/energye/systray v1.0.3 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

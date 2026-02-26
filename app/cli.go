@@ -304,6 +304,7 @@ func cliKeygen(logf func(string, ...any)) {
 func waitForSignal(logf func(string, ...any), cleanup func()) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sig)
 	logf("Running — press Ctrl+C to stop.")
 	<-sig
 	logf("Shutting down...")
