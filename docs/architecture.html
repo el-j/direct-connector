@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — Direct Connector</title>
+  <meta name="description" content="Comprehensive architecture documentation for Direct Connector — Go modules, internal packages, WebRTC P2P, SSH tunnels, relay server, and frontend design." />
+  <link rel="icon" type="image/png" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #080c14;
+      --bg-1: #0d1524;
+      --bg-2: #121d30;
+      --bg-card: rgba(255,255,255,.04);
+      --bg-card-hover: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.08);
+      --border-accent: rgba(56,189,248,.25);
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a3b8;
+      --text-muted: #4e6380;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-teal: #2dd4bf;
+      --accent-glow: rgba(56,189,248,.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-card: 0 4px 32px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.05) inset;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh gradient ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(99,102,241,.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(45,212,191,.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section { padding: 80px 0; }
+    section + section { padding-top: 0; }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(8,12,20,.75);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: .85rem;
+      color: var(--text-secondary) !important;
+      transition: border-color var(--transition), color var(--transition) !important;
+    }
+    .nav-gh:hover { border-color: var(--accent-cyan) !important; color: var(--text-primary) !important; }
+    .nav-gh svg { flex-shrink: 0; }
+
+    /* ── Page header ──────────────────────────────────────────────────────── */
+    .page-header {
+      padding: 80px 0 56px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(99,102,241,.1);
+      border: 1px solid rgba(99,102,241,.25);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0f6ff 0%, #94c4f5 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .page-header p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 640px;
+      line-height: 1.7;
+    }
+
+    /* ── TOC sidebar layout ───────────────────────────────────────────────── */
+    .doc-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 48px;
+      align-items: start;
+      padding: 56px 0 96px;
+    }
+    @media (max-width: 900px) { .doc-layout { grid-template-columns: 1fr; } }
+
+    .toc {
+      position: sticky;
+      top: 80px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+    .toc-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .toc ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+    .toc a {
+      display: block;
+      font-size: .8rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .toc a:hover { background: var(--bg-card-hover); color: var(--text-secondary); }
+    .toc a.active { color: var(--accent-cyan); background: rgba(56,189,248,.08); }
+    @media (max-width: 900px) { .toc { position: static; } }
+
+    /* ── Doc content ──────────────────────────────────────────────────────── */
+    .doc-content { display: flex; flex-direction: column; gap: 64px; }
+
+    .doc-section { scroll-margin-top: 80px; }
+
+    .section-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 8px;
+    }
+    .doc-section h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 16px;
+    }
+    .doc-section h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 32px;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+    .doc-section p {
+      font-size: .9rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+    .doc-section ul, .doc-section ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .doc-section li {
+      font-size: .875rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+    .doc-section li strong { color: var(--text-primary); }
+
+    /* ── Architecture diagram ─────────────────────────────────────────────── */
+    .arch-diagram {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      margin: 24px 0;
+      overflow-x: auto;
+    }
+    .arch-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: nowrap;
+    }
+    .arch-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      text-align: center;
+      font-size: .82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .arch-box:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+    .arch-box.cyan  { border-color: rgba(56,189,248,.3);  background: rgba(56,189,248,.06);  color: var(--accent-cyan); }
+    .arch-box.blue  { border-color: rgba(99,102,241,.3);  background: rgba(99,102,241,.06);  color: #a5b4fc; }
+    .arch-box.teal  { border-color: rgba(45,212,191,.3);  background: rgba(45,212,191,.06);  color: var(--accent-teal); }
+    .arch-box.green { border-color: rgba(74,222,128,.3);  background: rgba(74,222,128,.06);  color: #4ade80; }
+    .arch-box.amber { border-color: rgba(251,191,36,.3);  background: rgba(251,191,36,.06);  color: #fbbf24; }
+    .arch-box small { display: block; font-size: .7rem; font-weight: 400; color: var(--text-muted); margin-top: 3px; }
+    .arch-arrow {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      padding: 0 10px;
+      flex-shrink: 0;
+    }
+    .arch-arrow.down {
+      display: block;
+      text-align: center;
+      padding: 6px 0;
+      font-size: 1.2rem;
+    }
+    .arch-cols {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 700px) { .arch-cols { grid-template-columns: repeat(2, 1fr); } }
+    .arch-sub-cols {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 700px) { .arch-sub-cols { grid-template-columns: 1fr; } }
+    .arch-connector {
+      display: flex;
+      justify-content: center;
+    }
+    .arch-connector-line {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+    .arch-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 0;
+    }
+
+    /* ── State machine diagram ────────────────────────────────────────────── */
+    .state-machine {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin: 24px 0;
+      padding: 28px 24px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+    }
+    .state-node {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-size: .82rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .state-node.disconnected { border-color: rgba(148,163,184,.3); color: var(--text-secondary); }
+    .state-node.connecting   { border-color: rgba(251,191,36,.4);  background: rgba(251,191,36,.07); color: #fbbf24; }
+    .state-node.connected    { border-color: rgba(74,222,128,.4);  background: rgba(74,222,128,.07); color: #4ade80; }
+    .state-node.reconnecting { border-color: rgba(251,146,60,.4);  background: rgba(251,146,60,.07); color: #fb923c; }
+    .state-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 10px;
+      gap: 2px;
+    }
+    .state-arrow span { font-size: .65rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    .state-arrow svg  { color: var(--text-muted); }
+
+    /* ── Sequence diagram ─────────────────────────────────────────────────── */
+    .seq-diagram {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 28px 24px;
+      margin: 20px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .76rem;
+      line-height: 1.9;
+      overflow-x: auto;
+    }
+    .seq-actors {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+    .seq-actor {
+      flex: 1;
+      text-align: center;
+      font-weight: 700;
+      font-size: .75rem;
+      padding: 6px 4px;
+      border-radius: var(--radius-sm);
+    }
+    .seq-actor.a { color: var(--accent-cyan);  background: rgba(56,189,248,.08); }
+    .seq-actor.b { color: #a5b4fc; background: rgba(99,102,241,.08); }
+    .seq-actor.c { color: var(--accent-teal); background: rgba(45,212,191,.08); }
+    .seq-actor.d { color: #fbbf24; background: rgba(251,191,36,.08); }
+    .seq-actor.e { color: #4ade80; background: rgba(74,222,128,.08); }
+    .seq-line {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 2px 0;
+      color: #475569;
+    }
+    .seq-line .from { color: var(--accent-cyan); min-width: 80px; }
+    .seq-line .arrow { color: var(--accent-teal); }
+    .seq-line .to   { color: #a5b4fc; min-width: 80px; }
+    .seq-line .msg  { color: var(--text-secondary); }
+    .seq-line .note { color: var(--text-muted); font-style: italic; }
+    .seq-divider {
+      border: none;
+      border-top: 1px dashed rgba(255,255,255,.06);
+      margin: 10px 0;
+    }
+
+    /* ── Cards grid ───────────────────────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .card:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+    .card-icon.cyan   { background: rgba(56,189,248,.12);  border: 1px solid rgba(56,189,248,.2); }
+    .card-icon.blue   { background: rgba(99,102,241,.12);  border: 1px solid rgba(99,102,241,.2); }
+    .card-icon.teal   { background: rgba(45,212,191,.12);  border: 1px solid rgba(45,212,191,.2); }
+    .card-icon.green  { background: rgba(74,222,128,.12);  border: 1px solid rgba(74,222,128,.2); }
+    .card-icon.amber  { background: rgba(251,191,36,.12);  border: 1px solid rgba(251,191,36,.2); }
+    .card h4 { font-size: .92rem; font-weight: 700; margin-bottom: 8px; }
+    .card p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── Table ────────────────────────────────────────────────────────────── */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .84rem;
+      margin: 20px 0;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .doc-table th {
+      background: var(--bg-1);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-table td {
+      padding: 11px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      color: var(--text-secondary);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .doc-table tr:last-child td { border-bottom: none; }
+    .doc-table tr:hover td { background: rgba(255,255,255,.02); }
+    .doc-table td:first-child { color: var(--text-primary); font-weight: 500; }
+    .doc-table code {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78em;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Code block ───────────────────────────────────────────────────────── */
+    .code-block {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      line-height: 1.8;
+      color: #64748b;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+    .code-block .kw   { color: #7c3aed; }
+    .code-block .fn   { color: var(--accent-cyan); }
+    .code-block .str  { color: #4ade80; }
+    .code-block .cmt  { color: #334155; font-style: italic; }
+    .code-block .pkg  { color: #fbbf24; }
+
+    /* ── Inline code ──────────────────────────────────────────────────────── */
+    code {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82em;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Flow steps ───────────────────────────────────────────────────────── */
+    .flow-steps { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+    .flow-step { display: flex; gap: 14px; align-items: flex-start; }
+    .flow-num {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+      color: #080c14;
+      font-size: .72rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      margin-top: 1px;
+    }
+    .flow-step-body h4 { font-size: .88rem; font-weight: 600; margin-bottom: 3px; }
+    .flow-step-body p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── Decision card ────────────────────────────────────────────────────── */
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .decision-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+    .decision-card h4 {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .decision-card h4 .badge {
+      font-size: .65rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .badge.why  { background: rgba(56,189,248,.1);  border: 1px solid rgba(56,189,248,.2);  color: var(--accent-cyan); }
+    .badge.alt  { background: rgba(99,102,241,.1);  border: 1px solid rgba(99,102,241,.2);  color: #a5b4fc; }
+    .decision-card p { font-size: .82rem; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── Separator ────────────────────────────────────────────────────────── */
+    .sep { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* ── Alt section bg ───────────────────────────────────────────────────── */
+    .alt-bg {
+      background: var(--bg-1);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin: 0 -24px;
+      padding: 0 24px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+    }
+    .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ── Responsive ───────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .page-header { padding: 48px 0 36px; }
+      .doc-layout  { padding: 32px 0 64px; gap: 24px; }
+    }
+
+    /* ── Utility ──────────────────────────────────────────────────────────── */
+    .text-cyan   { color: var(--accent-cyan); }
+    .text-teal   { color: var(--accent-teal); }
+    .text-blue   { color: #a5b4fc; }
+    .text-green  { color: #4ade80; }
+    .text-amber  { color: #fbbf24; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mb-0  { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="./index.html">
+      <img src="./icon.png" alt="Direct Connector icon" />
+      Direct Connector
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">← Back to Home</a></li>
+      <li><a href="./getting-started.html">Getting Started</a></li>
+      <li><a href="./api.html">API Reference</a></li>
+      <li><a href="./contributing.html">Contributing</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.5-.3-5.1-1.3-5.1-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.2 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.7 21.4 24 17.1 24 12c0-6.3-5.2-11.5-12-11.5z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Page header ────────────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="page-header">
+    <div class="page-badge">📐 Architecture</div>
+    <h1>Architecture</h1>
+    <p>
+      A deep-dive into Direct Connector's two Go modules, internal packages,
+      WebRTC P2P data flow, SSH tunnel lifecycle, embedded TURN relay, and Vue 3 frontend.
+    </p>
+  </div>
+</div>
+
+<!-- ── Doc body ───────────────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="doc-layout">
+
+    <!-- TOC -->
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#two-modules">Two Go Modules</a></li>
+        <li><a href="#config">internal/config</a></li>
+        <li><a href="#keygen">internal/keygen</a></li>
+        <li><a href="#tunnel">internal/tunnel</a></li>
+        <li><a href="#p2p">internal/p2p</a></li>
+        <li><a href="#relay">internal/relay</a></li>
+        <li><a href="#sshsetup">internal/sshsetup</a></li>
+        <li><a href="#app-go">app-wails/app.go</a></li>
+        <li><a href="#frontend">Frontend</a></li>
+        <li><a href="#flow-ssh">Data Flow: SSH</a></li>
+        <li><a href="#flow-p2p">Data Flow: P2P</a></li>
+        <li><a href="#security">Security Properties</a></li>
+        <li><a href="#decisions">Key Decisions</a></li>
+      </ul>
+    </aside>
+
+    <!-- Content -->
+    <main class="doc-content">
+
+      <!-- ── 1. Overview ────────────────────────────────────────────────── -->
+      <section class="doc-section" id="overview">
+        <div class="section-label">Section 01</div>
+        <h2>Overview</h2>
+        <p>
+          Direct Connector is a cross-platform desktop app built with
+          <strong>Wails v2</strong> (Go backend + WebView frontend). It ships
+          two independent modes — SSH reverse tunnel and serverless WebRTC P2P —
+          plus an embedded TURN relay server, all wired together through a single
+          Go struct whose exported methods become async TypeScript bindings via
+          the Wails bridge.
+        </p>
+
+        <!-- Architecture diagram -->
+        <div class="arch-diagram">
+          <!-- Top row: Frontend ── bridge ── Backend -->
+          <div class="arch-top-row">
+            <div class="arch-box cyan">
+              Frontend
+              <small>Vue 3 + TypeScript</small>
+            </div>
+            <div class="arch-arrow">──── Wails JS bridge ────</div>
+            <div class="arch-box blue">
+              Go Backend
+              <small>app-wails/app.go · App{}</small>
+            </div>
+          </div>
+
+          <!-- Connector down from backend -->
+          <div class="arch-connector" style="margin-left: calc(50% + 60px);">
+            <div class="arch-connector-line"></div>
+          </div>
+
+          <!-- Four internal packages -->
+          <div class="arch-cols">
+            <div class="arch-box teal">
+              internal/tunnel
+              <small>SSH subprocess mgr</small>
+            </div>
+            <div class="arch-box blue">
+              internal/p2p
+              <small>WebRTC session</small>
+            </div>
+            <div class="arch-box amber">
+              internal/relay
+              <small>Embedded TURN</small>
+            </div>
+            <div class="arch-box green">
+              internal/sshsetup
+              <small>Key installer</small>
+            </div>
+          </div>
+
+          <!-- Connectors down -->
+          <div style="display:grid; grid-template-columns: repeat(4,1fr); margin-top:0;">
+            <div class="arch-connector"><div class="arch-connector-line"></div></div>
+            <div class="arch-connector"><div class="arch-connector-line"></div></div>
+            <div class="arch-connector"><div class="arch-connector-line"></div></div>
+            <div class="arch-connector"><div class="arch-connector-line" style="background:transparent;"></div></div>
+          </div>
+
+          <!-- External deps -->
+          <div class="arch-sub-cols">
+            <div class="arch-box" style="font-size:.75rem;">
+              <span class="text-muted">system</span> <code>ssh</code> binary
+              <small>or wsl.exe ssh</small>
+            </div>
+            <div class="arch-box" style="font-size:.75rem;">
+              <span class="text-blue">pion/webrtc v3</span>
+              <small>DTLS + ICE + DataChannel</small>
+            </div>
+            <div class="arch-box" style="font-size:.75rem;">
+              <span class="text-amber">pion/turn v2</span>
+              <small>RFC 5766 TURN server</small>
+            </div>
+          </div>
+
+          <!-- Shared packages row -->
+          <div style="margin-top:20px; border-top:1px dashed var(--border); padding-top:16px;">
+            <div style="font-size:.7rem; color:var(--text-muted); text-align:center; margin-bottom:10px; letter-spacing:.06em; text-transform:uppercase;">Shared by both modules</div>
+            <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+              <div class="arch-box" style="font-size:.75rem;">internal/config</div>
+              <div class="arch-box" style="font-size:.75rem;">internal/keygen</div>
+            </div>
+          </div>
+        </div>
+
+        <p>
+          The shared packages (<code>config</code>, <code>keygen</code>) are structurally
+          mirrored between the two Go modules but are never imported across module
+          boundaries. All user configuration flows through <code>internal/config</code>;
+          Ed25519 keypairs through <code>internal/keygen</code>.
+        </p>
+      </section>
+
+      <!-- ── 2. Two Go Modules ──────────────────────────────────────────── -->
+      <section class="doc-section" id="two-modules">
+        <div class="section-label">Section 02</div>
+        <h2>Two Go Modules</h2>
+        <p>
+          The repository contains two independent Go modules at separate paths.
+          This split preserves a clean headless/Docker build that carries zero
+          GUI dependencies while the Wails module can freely import Wails runtime
+          packages.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Path</th>
+              <th>Module name</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Wails GUI</td>
+              <td><code>app-wails/go.mod</code></td>
+              <td><code>direct-connector</code></td>
+              <td>Desktop app — Wails v2 + WebView; exports Go methods as async TypeScript bindings via the Wails bridge.</td>
+            </tr>
+            <tr>
+              <td>Fyne / CLI / Docker</td>
+              <td><code>app/go.mod</code></td>
+              <td><code>mqtt-tunnel</code></td>
+              <td>Native-widget Fyne GUI, headless CLI binary (<code>nofyne</code> build tag), and Docker image with zero GUI dependencies.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Module boundary rules</h3>
+        <ul>
+          <li><strong>Never import across modules.</strong> <code>direct-connector</code> and <code>mqtt-tunnel</code> are fully separate Go dependency graphs.</li>
+          <li><strong>Mirror shared logic.</strong> Edits to <code>internal/config</code>, <code>internal/keygen</code>, <code>internal/tunnel</code>, or <code>internal/p2p</code> must be applied in both <code>app-wails/internal/</code> and <code>app/internal/</code>.</li>
+          <li><strong>Wails-only packages.</strong> <code>internal/relay</code> and <code>internal/sshsetup</code> live only in the Wails module — they have no counterpart in <code>app/</code>.</li>
+        </ul>
+
+        <h3>Build tags (<code>app/</code> only)</h3>
+        <p>
+          The Fyne module uses build tags to produce two binary variants from the
+          same source tree. The default build (no tag) links the full Fyne GUI.
+          Adding <code>nofyne</code> swaps <code>main.go</code> for
+          <code>main_nofyne.go</code> and produces a static binary with no
+          OpenGL or X11 dependency — suitable for Docker.
+        </p>
+        <table class="doc-table">
+          <thead><tr><th>Tag</th><th>Entry point</th><th>Use case</th></tr></thead>
+          <tbody>
+            <tr><td>(default)</td><td><code>main.go</code>, <code>ssh_tab.go</code>, <code>p2p_tab.go</code></td><td>Native Fyne desktop GUI</td></tr>
+            <tr><td><code>nofyne</code></td><td><code>main_nofyne.go</code></td><td>Headless CLI / Docker (<code>CGO_ENABLED=0</code>, static)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── 3. internal/config ─────────────────────────────────────────── -->
+      <section class="doc-section" id="config">
+        <div class="section-label">Section 03</div>
+        <h2>internal/config</h2>
+        <p>
+          Manages reading and writing the single JSON configuration file.
+          The file is never created until the user first saves settings; if absent,
+          safe defaults are returned silently. Parse errors are printed to
+          <code>stderr</code> and the defaults are used — the app never crashes due to
+          a corrupted config file.
+        </p>
+
+        <h3>Config struct fields</h3>
+        <table class="doc-table">
+          <thead>
+            <tr><th>Field</th><th>JSON key</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Version</code></td><td><code>version</code></td><td><code>1</code></td><td>Schema version for future migrations</td></tr>
+            <tr><td><code>Host</code></td><td><code>host</code></td><td><code>joevbase.ddns.net</code></td><td>SSH jump-server hostname or IP</td></tr>
+            <tr><td><code>Port</code></td><td><code>port</code></td><td><code>443</code></td><td>SSH port — 443 bypasses most firewalls</td></tr>
+            <tr><td><code>ForwardPorts</code></td><td><code>forward_ports</code></td><td><code>1883, 3391</code></td><td>Comma-separated ports to forward</td></tr>
+            <tr><td><code>User</code></td><td><code>user</code></td><td>empty</td><td>SSH username</td></tr>
+            <tr><td><code>IPVersion</code></td><td><code>ip_version</code></td><td><code>"6"</code></td><td><code>""</code> = auto, <code>"4"</code> = IPv4, <code>"6"</code> = IPv6</td></tr>
+            <tr><td><code>KeyPath</code></td><td><code>key_path</code></td><td>empty</td><td>Custom private key; empty = use app key or SSH default</td></tr>
+            <tr><td><code>ForwardMode</code></td><td><code>forward_mode</code></td><td><code>"R"</code></td><td><code>"R"</code> = remote/reverse (<code>-R</code>), <code>"L"</code> = local (<code>-L</code>)</td></tr>
+            <tr><td><code>Verbose</code></td><td><code>verbose</code></td><td><code>false</code></td><td>Pass <code>-v</code> to SSH for debug output</td></tr>
+            <tr><td><code>UseWSLSsh</code></td><td><code>use_wsl_ssh</code></td><td><code>false</code></td><td>Windows: invoke <code>wsl.exe ssh</code> so SSH runs inside the WSL network namespace</td></tr>
+            <tr><td><code>IPv6</code></td><td><code>ipv6</code></td><td><code>true</code></td><td>Legacy boolean — superseded by <code>IPVersion</code>; kept for round-trip compatibility</td></tr>
+          </tbody>
+        </table>
+
+        <h3>File location per OS</h3>
+        <table class="doc-table">
+          <thead><tr><th>OS</th><th>Path (<code>os.UserConfigDir()</code>)</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td><code>~/Library/Application Support/MQTTTunnelManager/tunnel_config.json</code></td></tr>
+            <tr><td>Linux (XDG)</td><td><code>~/.config/MQTTTunnelManager/tunnel_config.json</code></td></tr>
+            <tr><td>Windows</td><td><code>%AppData%\MQTTTunnelManager\tunnel_config.json</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Version migration</h3>
+        <p>
+          The <code>Version</code> field is reserved for future schema migrations.
+          Currently only one migration is implemented: if an existing config has an
+          empty <code>IPVersion</code> field but the legacy <code>IPv6: true</code>
+          boolean is set, the load path automatically promotes it to
+          <code>IPVersion = "6"</code>. Future migrations follow the same
+          pattern — check <code>cfg.Version</code> and rewrite fields before returning
+          the config to callers.
+        </p>
+      </section>
+
+      <!-- ── 4. internal/keygen ─────────────────────────────────────────── -->
+      <section class="doc-section" id="keygen">
+        <div class="section-label">Section 04</div>
+        <h2>internal/keygen</h2>
+        <p>
+          Manages the app-owned Ed25519 SSH keypair. Keys are stored alongside
+          the config file under the <code>MQTTTunnelManager</code> app directory.
+        </p>
+
+        <h3>File paths</h3>
+        <table class="doc-table">
+          <thead><tr><th>File</th><th>Path</th><th>Permissions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Private key</td>
+              <td><code>&lt;AppDir&gt;/id_ed25519</code></td>
+              <td><code>0600</code> — OpenSSH PEM format, no passphrase</td>
+            </tr>
+            <tr>
+              <td>Public key</td>
+              <td><code>&lt;AppDir&gt;/id_ed25519.pub</code></td>
+              <td><code>0644</code> — single <code>authorized_keys</code> line</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Key operations</h3>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-icon cyan">🔑</div>
+            <h4>GenerateAppKey()</h4>
+            <p>Creates a new Ed25519 keypair using <code>crypto/rand</code>. Overwrites any existing files at the key paths. The app directory is created with <code>0700</code> if it doesn't exist.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon green">✓</div>
+            <h4>AppKeyExists()</h4>
+            <p>Idempotency guard — returns <code>true</code> if the private key file is present on disk. <code>app.go</code> calls this before generating to avoid overwriting a working keypair.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon teal">📋</div>
+            <h4>LoadAppPublicKey()</h4>
+            <p>Returns the public key as a trimmed <code>authorized_keys</code> line, ready to be copy-pasted into the server's <code>~/.ssh/authorized_keys</code>.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon blue">📁</div>
+            <h4>AppPrivateKeyPath()</h4>
+            <p>Returns the OS-appropriate absolute path to the private key file. Exposed to the frontend so the user can also reference the key manually in an SSH config.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. internal/tunnel ─────────────────────────────────────────── -->
+      <section class="doc-section" id="tunnel">
+        <div class="section-label">Section 05</div>
+        <h2>internal/tunnel</h2>
+        <p>
+          The tunnel package wraps the system <code>ssh</code> binary in a
+          managed subprocess that automatically reconnects on failure.
+          A <code>sync.Mutex</code> guards all mutable fields; callbacks
+          are invoked from a background goroutine so callers must dispatch
+          to the UI thread if needed.
+        </p>
+
+        <h3>Manager lifecycle — state machine</h3>
+        <div class="state-machine">
+          <div class="state-node disconnected">Disconnected</div>
+          <div class="state-arrow">
+            <svg width="24" height="12" viewBox="0 0 24 12"><path d="M0 6h20M14 1l6 5-6 5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            <span>Start(cfg)</span>
+          </div>
+          <div class="state-node connecting">Connecting…</div>
+          <div class="state-arrow">
+            <svg width="24" height="12" viewBox="0 0 24 12"><path d="M0 6h20M14 1l6 5-6 5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            <span>2 s timer fires</span>
+          </div>
+          <div class="state-node connected">Connected ✓</div>
+          <div class="state-arrow">
+            <svg width="24" height="12" viewBox="0 0 24 12"><path d="M0 6h20M14 1l6 5-6 5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            <span>ssh exits</span>
+          </div>
+          <div class="state-node reconnecting">Reconnecting</div>
+        </div>
+        <p style="font-size:.82rem; color:var(--text-muted); margin-top:-8px;">
+          After 5 s backoff the loop returns to <em>Connecting</em>. Calling <code>Stop()</code> from any state transitions directly to <em>Disconnected</em>.
+        </p>
+
+        <h3>BuildSSHArgs</h3>
+        <p>
+          <code>BuildSSHArgs(cfg Config)</code> constructs the full argument slice
+          passed to the <code>ssh</code> binary and validates all port numbers before
+          returning. Key flags applied:
+        </p>
+        <ul>
+          <li><code>-N</code> — no remote commands, port-forwarding only</li>
+          <li><code>-o ServerAliveInterval=30</code> — keepalive every 30 s</li>
+          <li><code>-o ServerAliveCountMax=3</code> — disconnect after 3 missed keepalives</li>
+          <li><code>-o ExitOnForwardFailure=yes</code> — exit if port binding fails (prevents silent failures)</li>
+          <li><code>-o StrictHostKeyChecking=accept-new</code> — auto-accept new hosts; reject changed keys</li>
+          <li><code>-R port:localhost:port</code> or <code>-L port:localhost:port</code> for each forwarded port</li>
+        </ul>
+
+        <h3>Reconnect backoff</h3>
+        <p>
+          A fixed 5-second <code>waitOrCancel</code> delay is applied between
+          reconnect attempts. If the SSH process exits in under 3 seconds, the
+          monitor loop emits a set of diagnostic hints to the log (wrong username,
+          bad key, port mismatch, known_hosts conflict) rather than silently looping.
+        </p>
+
+        <h3>Windows: WSL SSH</h3>
+        <p>
+          When <code>UseWSLSsh</code> is set, the manager substitutes the binary
+          <code>wsl.exe</code> and prepends <code>ssh</code> to the argument list.
+          This causes SSH to execute inside the WSL network namespace — the same
+          context where Docker and MQTT brokers typically run on Windows.
+          <code>hideWindow(cmd)</code> suppresses the console popup on Windows
+          (a no-op on macOS/Linux).
+        </p>
+      </section>
+
+      <!-- ── 6. internal/p2p ───────────────────────────────────────────── -->
+      <section class="doc-section" id="p2p">
+        <div class="section-label">Section 06</div>
+        <h2>internal/p2p</h2>
+        <p>
+          Implements a serverless peer-to-peer tunnel using
+          <strong>WebRTC DataChannels</strong> (pion/webrtc v3). After a
+          one-time out-of-band SDP copy-paste, all data flows directly
+          between the two machines over encrypted DTLS 1.2. No relay server
+          is involved unless symmetric NAT prevents direct ICE connectivity.
+        </p>
+
+        <h3>Session roles</h3>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-icon cyan">📤</div>
+            <h4>Consumer (Initiator)</h4>
+            <p>Calls <code>GenerateOffer(ctx, ports)</code>. Opens local TCP listeners on the specified ports. Each accepted TCP connection creates a new DataChannel to the Provider.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon blue">📥</div>
+            <h4>Provider (Responder)</h4>
+            <p>Calls <code>AcceptOfferAndGenerateAnswer(ctx, offerSDP)</code>. For each DataChannel whose label is a port number, bridges the channel to <code>localhost:&lt;port&gt;</code> on the Provider machine.</p>
+          </div>
+        </div>
+
+        <h3>SDP encode / decode</h3>
+        <p>
+          SDP blobs are serialised as JSON, then base64-encoded to produce a
+          single-line opaque string. This format is safe to copy through any
+          channel (chat, email, QR code) without escaping. The receiving side
+          calls <code>decodeSDP(raw)</code> which base64-decodes then JSON-parses
+          back into a <code>webrtc.SessionDescription</code>.
+        </p>
+
+        <h3>ICE gathering</h3>
+        <p>
+          The session uses five public STUN servers (Google × 2, Cloudflare, Nextcloud)
+          for NAT discovery — UDP and TCP variants. STUN is contacted once per side at
+          startup to discover the machine's public IP:port; <strong>no tunnel traffic
+          ever passes through a STUN server</strong>.
+        </p>
+        <p>
+          After ICE gathering the session waits up to the configured
+          <code>GatherTimeoutSecs</code> (default 30 s). If the timer fires,
+          gathered candidates so far are used — the connection attempt
+          continues with partial candidates.
+        </p>
+
+        <h3>TCP mux option</h3>
+        <p>
+          When <code>TCPMuxPort</code> is non-zero, a <code>pionice.NewTCPMuxDefault</code>
+          listener is bound on that port before creating the PeerConnection.
+          This exposes a fixed TCP port for ICE-TCP candidates — useful when the
+          port should be predictable for firewall rules.
+          Port 443 is the recommended value; TCP traffic to 443 is
+          indistinguishable from HTTPS to most network appliances.
+        </p>
+
+        <h3>TURN / STUN configuration</h3>
+        <p>
+          User-provided TURN servers are appended to the ICE server list after the
+          default STUN entries. Each <code>TURNServer</code> carries a URL
+          (<code>turn:</code> or <code>turns:</code> scheme), username, and
+          credential. TURN is only needed when both peers are behind symmetric NAT
+          or CGNAT.
+        </p>
+
+        <h3>ICE timeouts</h3>
+        <table class="doc-table">
+          <thead><tr><th>Parameter</th><th>Value</th><th>Rationale</th></tr></thead>
+          <tbody>
+            <tr><td>disconnectedTimeout</td><td>5 s</td><td>Detect dead path quickly</td></tr>
+            <tr><td>failedTimeout</td><td>25 s</td><td>Allow time to try all candidate pairs</td></tr>
+            <tr><td>keepAliveInterval</td><td>2 s</td><td>Low overhead on long-idle tunnels</td></tr>
+          </tbody>
+        </table>
+
+        <h3>DataChannel bridge</h3>
+        <p>
+          Once a DataChannel opens on the Provider side, <code>dc.Detach()</code>
+          returns a raw <code>io.ReadWriteCloser</code>. The package then calls
+          <code>bridge(raw, localConn)</code> which runs two <code>io.Copy</code>
+          goroutines in opposite directions, each protected by a <code>sync.Once</code>
+          to prevent double-close races.
+        </p>
+      </section>
+
+      <!-- ── 7. internal/relay ─────────────────────────────────────────── -->
+      <section class="doc-section" id="relay">
+        <div class="section-label">Section 07</div>
+        <h2>internal/relay</h2>
+        <p>
+          Wraps <strong>pion/turn v2</strong> to provide an embedded
+          TURN relay server. This allows the P2P mode to work even when both
+          peers are behind symmetric NAT or CGNAT — the relay forwards UDP
+          packets between the peers without seeing the encrypted payload.
+        </p>
+
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-icon amber">🌐</div>
+            <h4>Public IP discovery</h4>
+            <p>On <code>Start(port)</code>, the relay dials <code>stun.l.google.com:19302</code> via UDP to discover the machine's public IP. Falls back to a UDP-dial heuristic if STUN is unreachable.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon cyan">🔐</div>
+            <h4>HMAC-SHA1 credentials</h4>
+            <p>Generates a random 32-character hex secret at startup. Credentials are time-limited: the username encodes a Unix timestamp and the password is <code>HMAC-SHA1(secret, username)</code> per RFC 5766 §10.2.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon teal">📡</div>
+            <h4>Dual transport</h4>
+            <p>The relay listens on UDP (primary, per RFC 5766) and attempts to bind a TCP listener on the same port. The TCP address is exposed as <code>TURNTCPAddr</code> — empty if the TCP bind failed.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon blue">🔄</div>
+            <h4>Credential refresh</h4>
+            <p><code>Credentials()</code> generates a fresh username/password pair on every call using the current Unix timestamp. Clients should re-fetch credentials before each session rather than caching them long-term.</p>
+          </div>
+        </div>
+
+        <h3>Lifecycle</h3>
+        <p>
+          <code>relay.New(onLog)</code> constructs an idle instance.
+          <code>Start(port)</code> discovers the public IP, opens the UDP packet
+          conn, optionally opens the TCP listener, and starts the pion/turn server.
+          The call is idempotent — if the server is already running it returns
+          an error. <code>Stop()</code> gracefully shuts down the server and
+          closes both listeners; safe to call when not running.
+        </p>
+        <p>
+          The relay logs all significant events via the <code>OnLog</code> callback,
+          which <code>app.go</code> wraps to prepend a timestamp and emit as a
+          <code>relay:log</code> Wails event.
+        </p>
+      </section>
+
+      <!-- ── 8. internal/sshsetup ───────────────────────────────────────── -->
+      <section class="doc-section" id="sshsetup">
+        <div class="section-label">Section 08</div>
+        <h2>internal/sshsetup</h2>
+        <p>
+          Provides a one-click "install key" workflow that dials the SSH server
+          via pure-Go <code>golang.org/x/crypto/ssh</code>, interactively confirms
+          the host fingerprint, authenticates with a password, and appends the app
+          public key to <code>~/.ssh/authorized_keys</code> on the server.
+          Only lives in <code>app-wails/</code> — the Fyne/CLI module has no
+          equivalent.
+        </p>
+
+        <h3>Interactive flow</h3>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-step-body">
+              <h4>Key generation</h4>
+              <p><code>app.go</code> calls <code>keygen.GenerateAppKey()</code> if no app key exists, then loads the public key string for injection.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-step-body">
+              <h4>Dial &amp; fingerprint prompt</h4>
+              <p><code>Installer.Run(ctx, Config)</code> dials the server. The host key callback emits a <code>setup:prompt { kind: "fingerprint", … }</code> Wails event and blocks on a reply channel.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-step-body">
+              <h4>User confirmation</h4>
+              <p>The frontend shows a modal; the user clicks Accept/Reject. The frontend calls <code>App.SSHSetupReply("yes")</code> or <code>App.SSHSetupReply("no")</code> to unblock the goroutine.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-step-body">
+              <h4>Password prompt</h4>
+              <p>If fingerprint accepted, the installer emits <code>setup:prompt { kind: "password", … }</code> and blocks again. The user enters their password in the frontend; <code>SSHSetupReply(password)</code> unblocks.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">5</div>
+            <div class="flow-step-body">
+              <h4>Key installation (idempotent)</h4>
+              <p>Opens an SSH session, checks for the public key in <code>~/.ssh/authorized_keys</code> using a server-side <code>grep -qxF</code>, and appends it only if not already present.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">6</div>
+            <div class="flow-step-body">
+              <h4>Completion event</h4>
+              <p>Emits <code>setup:done { ok: true, message: "Public key installed successfully." }</code>. On any error the <code>ok</code> field is <code>false</code> and <code>message</code> contains the error string.</p>
+            </div>
+          </div>
+        </div>
+
+        <h3>Events emitted</h3>
+        <table class="doc-table">
+          <thead><tr><th>Event</th><th>Payload</th></tr></thead>
+          <tbody>
+            <tr><td><code>setup:log</code></td><td>Timestamped log string (progress messages)</td></tr>
+            <tr><td><code>setup:prompt</code></td><td><code>{ kind: "fingerprint"|"password", message, fingerprint }</code></td></tr>
+            <tr><td><code>setup:done</code></td><td><code>{ ok: bool, message: string }</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── 9. app-wails/app.go ────────────────────────────────────────── -->
+      <section class="doc-section" id="app-go">
+        <div class="section-label">Section 09</div>
+        <h2>app-wails/app.go</h2>
+        <p>
+          <code>App</code> is the single exported struct. All of its exported
+          methods become async TypeScript functions callable from the Vue frontend
+          via the Wails JS bridge. Frontend-facing types are defined in
+          <code>app.go</code> — not in <code>internal/</code> — so Wails generates
+          clean camelCase TypeScript interfaces.
+        </p>
+
+        <h3>Startup hook</h3>
+        <p>
+          <code>startup(ctx context.Context)</code> is the Wails lifecycle hook
+          called once the WebView window is ready. It:
+        </p>
+        <ul>
+          <li>Stores the Wails <code>context.Context</code> (required by <code>runtime.EventsEmit</code>)</li>
+          <li>Constructs the <code>relay.Relay</code> with a log callback that prepends a timestamp</li>
+          <li>Constructs the <code>tunnel.Manager</code> with <code>OnStatus</code> and <code>OnLog</code> callbacks</li>
+          <li>Calls <code>setupTray()</code> to register the system tray icon and menu</li>
+        </ul>
+
+        <h3>Event emission pattern</h3>
+        <p>
+          All backend → frontend messages use <code>runtime.EventsEmit(ctx, eventName, payload)</code>.
+          Event names follow a <code>subsystem:verb</code> convention:
+        </p>
+        <table class="doc-table">
+          <thead><tr><th>Event</th><th>Payload type</th><th>Emitted by</th></tr></thead>
+          <tbody>
+            <tr><td><code>tunnel:status</code></td><td><code>string</code></td><td><code>tunnel.Manager.OnStatus</code></td></tr>
+            <tr><td><code>tunnel:log</code></td><td><code>string</code></td><td><code>tunnel.Manager.OnLog</code></td></tr>
+            <tr><td><code>p2p:status</code></td><td><code>string</code></td><td><code>p2p.P2PSession.OnStatus</code></td></tr>
+            <tr><td><code>p2p:log</code></td><td><code>string</code></td><td><code>p2p.P2PSession.OnLog</code></td></tr>
+            <tr><td><code>relay:log</code></td><td><code>string</code></td><td><code>relay.Relay.OnLog</code></td></tr>
+            <tr><td><code>setup:prompt</code></td><td><code>SetupPrompt</code></td><td><code>sshsetup.Installer</code> prompt callback</td></tr>
+            <tr><td><code>setup:log</code></td><td><code>string</code></td><td><code>sshsetup.Installer</code> log callback</td></tr>
+            <tr><td><code>setup:done</code></td><td><code>SetupResult</code></td><td>post-install goroutine in <code>SSHSetupStart</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Mutex guarding shared state</h3>
+        <p>
+          A single <code>sync.Mutex mu</code> on <code>App</code> protects all
+          mutable fields: <code>p2pSess</code>, <code>p2pCancel</code>,
+          <code>p2pConfig</code>, <code>sshInstaller</code>,
+          <code>setupCancelFunc</code>, and <code>setupBusy</code>.
+          The pattern is always lock → read/write → unlock (never defer unlock
+          around blocking calls).
+        </p>
+
+        <h3>Shutdown</h3>
+        <p>
+          <code>shutdown()</code> is registered as the Wails <code>OnShutdown</code>
+          hook. It stops the tunnel, the P2P session, and the relay in sequence,
+          then calls <code>teardownTray()</code> to remove the system tray icon.
+        </p>
+      </section>
+
+      <!-- ── 10. Frontend ───────────────────────────────────────────────── -->
+      <section class="doc-section" id="frontend">
+        <div class="section-label">Section 10</div>
+        <h2>Frontend Architecture</h2>
+        <p>
+          The frontend lives at <code>app-wails/frontend/</code> and is built with
+          <strong>Vue 3 Composition API</strong>, TypeScript, and Tailwind CSS.
+          The Wails build tool runs <code>npm run build</code> and embeds the
+          resulting <code>dist/</code> as the WebView content.
+        </p>
+
+        <h3>Component structure</h3>
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-icon cyan">🔗</div>
+            <h4>SshTab.vue</h4>
+            <p>SSH tunnel configuration form, start/stop controls, log output, and the <code>&lt;Teleport to="body"&gt;</code> SSH setup modal for interactive key installation. Uses <code>v-show</code> (not <code>v-if</code>) to keep the tab mounted.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon blue">🌐</div>
+            <h4>P2pTab.vue</h4>
+            <p>WebRTC P2P controls: Consumer offer generation, Provider answer acceptance, SDP text boxes, relay start/stop, TURN credential display, and the advanced ICE configuration panel.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon teal">✅</div>
+            <h4>portValidation.ts</h4>
+            <p>Shared utility that validates comma-separated port strings. Used by both <code>SshTab</code> and <code>P2pTab</code> to surface input errors before calling backend methods.</p>
+          </div>
+        </div>
+
+        <h3>Wails JS bindings pattern</h3>
+        <p>
+          Wails generates TypeScript functions in <code>wailsjs/go/main/App.js</code>
+          for every exported method on <code>App</code>. Components import and call
+          them as regular async functions:
+        </p>
+        <div class="code-block"><span class="kw">import</span> { <span class="fn">StartTunnel</span>, <span class="fn">StopTunnel</span>, <span class="fn">IsTunnelRunning</span> } <span class="kw">from</span> <span class="str">'../wailsjs/go/main/App'</span>;
+
+<span class="cmt">// Call backend method — returns Promise&lt;string&gt;</span>
+<span class="kw">const</span> err = <span class="kw">await</span> <span class="fn">StartTunnel</span>(settings);
+<span class="kw">if</span> (err) console.error(err);</div>
+
+        <h3>Event listener lifecycle</h3>
+        <p>
+          Components subscribe to backend events in <code>onMounted</code> and
+          unsubscribe in <code>onUnmounted</code> to prevent memory leaks.
+          The Wails runtime provides <code>EventsOn(event, callback)</code>
+          and <code>EventsOff(event)</code>:
+        </p>
+        <div class="code-block"><span class="kw">import</span> { <span class="fn">EventsOn</span>, <span class="fn">EventsOff</span> } <span class="kw">from</span> <span class="str">'../wailsjs/runtime/runtime'</span>;
+
+<span class="fn">onMounted</span>(() => {
+  <span class="fn">EventsOn</span>(<span class="str">'tunnel:status'</span>, (msg: string) => { status.value = msg; });
+  <span class="fn">EventsOn</span>(<span class="str">'tunnel:log'</span>,   (msg: string) => { logs.value.push(msg); });
+});
+<span class="fn">onUnmounted</span>(() => {
+  <span class="fn">EventsOff</span>(<span class="str">'tunnel:status'</span>);
+  <span class="fn">EventsOff</span>(<span class="str">'tunnel:log'</span>);
+});</div>
+
+        <h3>Dark theme alignment</h3>
+        <p>
+          Tailwind's dark theme uses <code>bg-gray-900</code> as the root
+          background, matching the Wails <code>BackgroundColour</code>
+          configured in <code>main.go</code>. This eliminates the white flash
+          that can appear during WebView initialisation on slower machines.
+        </p>
+      </section>
+
+      <!-- ── 11. Data Flow: SSH Tunnel ──────────────────────────────────── -->
+      <section class="doc-section" id="flow-ssh">
+        <div class="section-label">Section 11</div>
+        <h2>Data Flow: SSH Tunnel</h2>
+        <p>
+          The sequence below shows what happens from the moment a user clicks
+          <em>Connect</em> in the SSH tab to the first packet flowing through
+          the reverse tunnel.
+        </p>
+
+        <div class="seq-diagram">
+          <div class="seq-actors">
+            <div class="seq-actor a">Frontend<br/>(Vue)</div>
+            <div class="seq-actor b">app.go<br/>(App)</div>
+            <div class="seq-actor c">tunnel.Manager</div>
+            <div class="seq-actor d">ssh binary<br/>(subprocess)</div>
+            <div class="seq-actor e">Jump Server<br/>(remote)</div>
+          </div>
+
+          <div class="seq-line"><span class="from">Frontend</span><span class="arrow">──▶</span><span class="to">app.go</span><span class="msg">StartTunnel(settings)</span></div>
+          <div class="seq-line"><span class="from">app.go</span><span class="arrow">──▶</span><span class="to">Manager</span><span class="msg">Start(Config)</span></div>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Manager</span><span class="msg">spawn monitorLoop goroutine</span></div>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Frontend</span><span class="msg">tunnel:status "Connecting…"</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">ssh</span><span class="msg">exec.CommandContext(ctx, "ssh", BuildSSHArgs(cfg))</span></div>
+          <div class="seq-line"><span class="from">ssh</span><span class="arrow">──▶</span><span class="to">Server</span><span class="msg">TCP connect :443</span></div>
+          <div class="seq-line"><span class="from">ssh</span><span class="arrow">──▶</span><span class="to">Server</span><span class="msg">key exchange + public key auth</span></div>
+          <div class="seq-line"><span class="from">ssh</span><span class="arrow">──▶</span><span class="to">Server</span><span class="msg">request remote port binding (-R port:localhost:port)</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Frontend</span><span class="msg">tunnel:status "Connected &amp; Active" (after 2 s timer)</span></div>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Frontend</span><span class="msg">tunnel:log "SSH: debug1: remote forward success …"</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="note">── On SSH exit (network drop, auth failure, etc.) ──</span></div>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Frontend</span><span class="msg">tunnel:status "Reconnecting…"</span></div>
+          <div class="seq-line"><span class="from">Manager</span><span class="arrow">──▶</span><span class="to">Manager</span><span class="msg">waitOrCancel(ctx, 5s) → loop back to Connecting</span></div>
+        </div>
+      </section>
+
+      <!-- ── 12. Data Flow: P2P Connection ──────────────────────────────── -->
+      <section class="doc-section" id="flow-p2p">
+        <div class="section-label">Section 12</div>
+        <h2>Data Flow: P2P Connection</h2>
+        <p>
+          The P2P mode requires a one-time manual SDP exchange (out-of-band).
+          After that, all data is encrypted peer-to-peer over DTLS 1.2 — no relay
+          server is involved unless ICE fails due to symmetric NAT.
+        </p>
+
+        <div class="seq-diagram">
+          <div class="seq-actors">
+            <div class="seq-actor a">Consumer<br/>(Frontend)</div>
+            <div class="seq-actor b">app.go</div>
+            <div class="seq-actor c">P2PSession</div>
+            <div class="seq-actor d">Provider<br/>(P2PSession)</div>
+            <div class="seq-actor e">Provider<br/>(Frontend)</div>
+          </div>
+
+          <div class="seq-line"><span class="from">Consumer</span><span class="arrow">──▶</span><span class="to">app.go</span><span class="msg">P2PSetConfig(cfg)  <span class="note">(optional TURN + TCPMux)</span></span></div>
+          <div class="seq-line"><span class="from">Consumer</span><span class="arrow">──▶</span><span class="to">app.go</span><span class="msg">P2PGenerateOffer("1883,3391")</span></div>
+          <div class="seq-line"><span class="from">app.go</span><span class="arrow">──▶</span><span class="to">P2PSession</span><span class="msg">GenerateOffer(ctx, ports)</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">STUN</span><span class="msg">discover public IP:port candidates</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">Consumer</span><span class="msg">return base64 SDP offer</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="note">── User copies offer, sends to Provider via any channel ──</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="from">Provider</span><span class="arrow">──▶</span><span class="to">app.go</span><span class="msg">P2PProvideAnswer(offerSDP)</span></div>
+          <div class="seq-line"><span class="from">app.go</span><span class="arrow">──▶</span><span class="to">P2PSession</span><span class="msg">AcceptOfferAndGenerateAnswer(ctx, offer)</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">STUN</span><span class="msg">discover public IP:port candidates</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">Provider</span><span class="msg">return base64 SDP answer</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="note">── User copies answer, sends back to Consumer ──</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="from">Consumer</span><span class="arrow">──▶</span><span class="to">app.go</span><span class="msg">P2PAcceptAnswer(answerSDP)</span></div>
+          <div class="seq-line"><span class="from">app.go</span><span class="arrow">──▶</span><span class="to">P2PSession</span><span class="msg">ApplyAnswer(answer)</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">↔</span><span class="to">P2PSession</span><span class="msg">ICE connectivity checks (DTLS handshake)</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">Consumer</span><span class="msg">p2p:status "DIRECT P2P CONNECTED ✓"</span></div>
+          <hr class="seq-divider"/>
+          <div class="seq-line"><span class="note">── Live session ──</span></div>
+          <div class="seq-line"><span class="from">Consumer</span><span class="arrow">──▶</span><span class="to">Consumer</span><span class="msg">TCP listen on :1883, :3391</span></div>
+          <div class="seq-line"><span class="from">TCP client</span><span class="arrow">──▶</span><span class="to">Consumer</span><span class="msg">connect :1883</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">──▶</span><span class="to">P2PSession</span><span class="msg">CreateDataChannel("1883") → bridge ↔ localhost:1883 on Provider</span></div>
+          <div class="seq-line"><span class="from">P2PSession</span><span class="arrow">↔</span><span class="to">P2PSession</span><span class="msg">bi-directional DTLS encrypted stream</span></div>
+        </div>
+      </section>
+
+      <!-- ── 13. Security Properties ────────────────────────────────────── -->
+      <section class="doc-section" id="security">
+        <div class="section-label">Section 13</div>
+        <h2>Security Properties</h2>
+        <table class="doc-table">
+          <thead>
+            <tr><th>Property</th><th>Mechanism</th><th>Scope</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>P2P transport encryption</td>
+              <td>DTLS 1.2 (mandatory per WebRTC spec) — negotiated by pion/webrtc</td>
+              <td>All DataChannel traffic; end-to-end between peers</td>
+            </tr>
+            <tr>
+              <td>SSH authentication</td>
+              <td>Ed25519 public key; private key stored at <code>0600</code> in the app config dir</td>
+              <td>SSH tunnel and <code>SSHCheckKeyAuth</code></td>
+            </tr>
+            <tr>
+              <td>SSH host verification</td>
+              <td><code>StrictHostKeyChecking=accept-new</code> — auto-accepts new hosts; rejects changed keys</td>
+              <td>SSH tunnel subprocess</td>
+            </tr>
+            <tr>
+              <td>TURN credentials</td>
+              <td>HMAC-SHA1 time-limited credentials per RFC 5766 §10.2; random 32-char hex secret generated at relay start</td>
+              <td>Embedded relay server</td>
+            </tr>
+            <tr>
+              <td>STUN privacy</td>
+              <td>STUN is used only for public IP discovery; zero tunnel bytes pass through STUN servers</td>
+              <td>P2P ICE gathering phase</td>
+            </tr>
+            <tr>
+              <td>Config file permissions</td>
+              <td>Config written at <code>0644</code>; app directory created at <code>0700</code> (or <code>0755</code> on config dir); private key at <code>0600</code></td>
+              <td>All persisted files</td>
+            </tr>
+            <tr>
+              <td>SSH setup — no key reuse</td>
+              <td><code>AppKeyExists()</code> guard prevents overwriting a working keypair on repeated setup calls</td>
+              <td>Key generation workflow</td>
+            </tr>
+            <tr>
+              <td>SSH setup — idempotent key install</td>
+              <td>Server-side <code>grep -qxF</code> check before appending to <code>authorized_keys</code> prevents duplicates</td>
+              <td><code>internal/sshsetup</code></td>
+            </tr>
+            <tr>
+              <td>WSL path validation</td>
+              <td><code>StartTunnel</code> rejects Windows-format key paths when <code>UseWSLSsh</code> is set, preventing silent auth failures</td>
+              <td>Windows + WSL SSH path</td>
+            </tr>
+            <tr>
+              <td>P2P fingerprint isolation</td>
+              <td>Each <code>PeerConnection</code> generates a fresh DTLS certificate — no long-lived identity key for P2P sessions</td>
+              <td>pion/webrtc</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── 14. Key Technical Decisions ───────────────────────────────── -->
+      <section class="doc-section" id="decisions">
+        <div class="section-label">Section 14</div>
+        <h2>Key Technical Decisions</h2>
+
+        <div class="decision-grid">
+          <div class="decision-card">
+            <h4><span class="badge why">WHY</span> Wails v2 for the GUI</h4>
+            <p>
+              Wails embeds the OS-native WebView (WKWebView on macOS, WebView2 on
+              Windows, WebKitGTK on Linux) so the binary ships without a bundled
+              Chromium. The result is a small download (&lt;10 MB), native OS
+              feel, and system tray support — with no Electron-style memory
+              overhead. The Go ↔ TypeScript binding is codegen-free: any exported
+              method on <code>App</code> becomes a typed async function
+              automatically.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h4><span class="badge why">WHY</span> pion/webrtc for P2P</h4>
+            <p>
+              pion/webrtc is a pure-Go WebRTC implementation with zero CGo. It
+              cross-compiles cleanly to all target platforms and exposes enough
+              low-level access (setting engine, TCPMux, <code>Detach()</code> for
+              raw DataChannel I/O) to implement a general-purpose TCP-over-WebRTC
+              bridge. The DTLS 1.2 layer is provided for free as part of the
+              WebRTC spec.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h4><span class="badge why">WHY</span> System <code>ssh</code> binary</h4>
+            <p>
+              Invoking the system SSH binary rather than a pure-Go SSH client
+              means the app inherits the full ecosystem: SSH agents,
+              <code>~/.ssh/config</code>, OpenSSH keepalive semantics, and
+              any host-specific options the user has already configured.
+              It also avoids maintaining a complex SSH client implementation.
+              The trade-off is that the binary must be on PATH; the manager
+              emits a helpful hint if it is not found.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h4><span class="badge why">WHY</span> Two Go modules</h4>
+            <p>
+              The Fyne/CLI module must build with <code>CGO_ENABLED=0</code> and
+              the <code>nofyne</code> tag to produce a static binary suitable for
+              Docker. Merging it into the Wails module would pull in Wails runtime
+              imports that reference CGo and WebView symbols, breaking the headless
+              build. Keeping separate modules preserves independent dependency
+              graphs while the <code>Makefile</code> orchestrates both with a
+              single <code>make test</code>.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h4><span class="badge alt">ALT</span> Port 443 as SSH default</h4>
+            <p>
+              The default SSH port is 443 instead of 22. Port 443 is universally
+              open on firewalls and corporate proxies because it carries HTTPS.
+              An SSH connection on 443 is indistinguishable from TLS at the packet
+              level, allowing the tunnel to work in environments that block
+              port 22.
+            </p>
+          </div>
+          <div class="decision-card">
+            <h4><span class="badge alt">ALT</span> Embedded TURN relay</h4>
+            <p>
+              Rather than requiring users to deploy a separate TURN server,
+              Direct Connector embeds one via pion/turn. Any machine with a public
+              IP can become a relay with one click. HMAC-SHA1 time-limited
+              credentials prevent anonymous use without requiring a
+              database or user registry.
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <img src="./icon.png" alt="" />
+      <span>Direct Connector — unlicensed, use freely.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="./index.html">Home</a></li>
+      <li><a href="./architecture.html">Architecture</a></li>
+      <li><a href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/el-j/directConnector/actions" target="_blank" rel="noopener">CI</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+  // Highlight active TOC link based on scroll position
+  const sections = document.querySelectorAll('.doc-section');
+  const tocLinks = document.querySelectorAll('.toc a');
+
+  function updateTOC() {
+    let current = '';
+    sections.forEach(s => {
+      const top = s.getBoundingClientRect().top;
+      if (top <= 100) current = s.id;
+    });
+    tocLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }
+
+  window.addEventListener('scroll', updateTOC, { passive: true });
+  updateTOC();
+</script>
+
+</body>
+</html>

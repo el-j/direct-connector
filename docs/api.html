@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference — Direct Connector</title>
+  <meta name="description" content="Complete API reference for Direct Connector: Go backend methods, TypeScript models, backend events, and frontend utilities." />
+  <link rel="icon" type="image/png" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #080c14;
+      --bg-1: #0d1524;
+      --bg-2: #121d30;
+      --bg-card: rgba(255,255,255,.04);
+      --bg-card-hover: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.08);
+      --border-accent: rgba(56,189,248,.25);
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a3b8;
+      --text-muted: #4e6380;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-teal: #2dd4bf;
+      --accent-glow: rgba(56,189,248,.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-card: 0 4px 32px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.05) inset;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh gradient ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(99,102,241,.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(45,212,191,.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(8,12,20,.75);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links a.active { color: var(--accent-cyan); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: .85rem;
+      color: var(--text-secondary) !important;
+      transition: border-color var(--transition), color var(--transition) !important;
+    }
+    .nav-gh:hover { border-color: var(--accent-cyan) !important; color: var(--text-primary) !important; }
+    .nav-gh svg { flex-shrink: 0; }
+
+    /* ── Page layout ──────────────────────────────────────────────────────── */
+    .page-wrap {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 60px);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    .sidebar {
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      padding: 32px 0 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .sidebar-group { margin-bottom: 28px; padding: 0 20px; }
+    .sidebar-group-label {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      padding-left: 10px;
+    }
+    .sidebar-nav { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-nav a {
+      display: block;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: .83rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: background var(--transition), color var(--transition);
+    }
+    .sidebar-nav a:hover { background: var(--bg-card); color: var(--text-primary); }
+    .sidebar-nav a.active { background: rgba(56,189,248,.1); color: var(--accent-cyan); }
+
+    /* ── Main content ─────────────────────────────────────────────────────── */
+    .main-content {
+      padding: 48px 56px 80px;
+      max-width: 900px;
+    }
+
+    /* ── Page header ──────────────────────────────────────────────────────── */
+    .page-header {
+      margin-bottom: 56px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(56,189,248,.1);
+      border: 1px solid rgba(56,189,248,.25);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .page-header h1 {
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0f6ff 0%, #94c4f5 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      line-height: 1.75;
+      max-width: 640px;
+    }
+
+    /* ── Section headers ──────────────────────────────────────────────────── */
+    .api-section {
+      margin-bottom: 72px;
+      scroll-margin-top: 80px;
+    }
+    .s-label {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 10px;
+    }
+    .s-title {
+      font-size: clamp(1.4rem, 3vw, 1.9rem);
+      font-weight: 800;
+      letter-spacing: -.025em;
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+    .s-body {
+      color: var(--text-secondary);
+      font-size: .95rem;
+      line-height: 1.75;
+      max-width: 680px;
+      margin-bottom: 32px;
+    }
+
+    /* ── Method cards ─────────────────────────────────────────────────────── */
+    .method-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 24px;
+      transition: border-color var(--transition);
+      scroll-margin-top: 80px;
+    }
+    .method-card:hover { border-color: var(--border-accent); }
+    .method-header {
+      background: #050c1a;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .method-badge {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 5px;
+      flex-shrink: 0;
+    }
+    .badge-async { background: rgba(56,189,248,.15); color: var(--accent-cyan); border: 1px solid rgba(56,189,248,.25); }
+    .badge-void  { background: rgba(99,102,241,.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,.25); }
+    .badge-bool  { background: rgba(74,222,128,.1);  color: #4ade80; border: 1px solid rgba(74,222,128,.2); }
+    .badge-str   { background: rgba(251,191,36,.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,.2); }
+    .badge-obj   { background: rgba(45,212,191,.1);  color: var(--accent-teal); border: 1px solid rgba(45,212,191,.2); }
+    .method-sig {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .85rem;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    .method-sig .fn-name { color: var(--accent-cyan); font-weight: 600; }
+    .method-sig .fn-param { color: #a5f3fc; }
+    .method-sig .fn-type  { color: #94a3b8; }
+    .method-sig .fn-ret   { color: #fbbf24; }
+    .method-body { padding: 20px 24px 24px; }
+    .method-desc {
+      font-size: .9rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 20px;
+    }
+
+    /* ── Parameters / return tables ───────────────────────────────────────── */
+    .param-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      margin-bottom: 16px;
+    }
+    thead th {
+      text-align: left;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      vertical-align: top;
+      color: var(--text-secondary);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    td.td-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      color: #a5f3fc;
+      white-space: nowrap;
+    }
+    td.td-type {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      color: #fbbf24;
+      white-space: nowrap;
+    }
+    td.td-desc { line-height: 1.6; }
+
+    /* ── Code blocks ──────────────────────────────────────────────────────── */
+    .code-block {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      line-height: 1.8;
+      color: #64748b;
+      overflow-x: auto;
+      margin-top: 16px;
+      white-space: pre;
+    }
+    .code-block .kw    { color: #818cf8; }
+    .code-block .fn    { color: var(--accent-cyan); }
+    .code-block .str   { color: #86efac; }
+    .code-block .num   { color: #fbbf24; }
+    .code-block .type  { color: var(--accent-teal); }
+    .code-block .cmt   { color: #334155; font-style: italic; }
+    .code-block .key   { color: #a5f3fc; }
+    .code-block .ok    { color: #4ade80; }
+    .code-block .err   { color: #f87171; }
+    .code-block .evt   { color: #c4b5fd; }
+
+    .code-label {
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 20px;
+      margin-bottom: 6px;
+    }
+
+    /* ── Inline code ──────────────────────────────────────────────────────── */
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82em;
+      background: rgba(56,189,248,.08);
+      border: 1px solid rgba(56,189,248,.15);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Model cards ──────────────────────────────────────────────────────── */
+    .model-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 32px;
+      scroll-margin-top: 80px;
+    }
+    .model-header {
+      background: #050c1a;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .model-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .95rem;
+      font-weight: 600;
+      color: var(--accent-teal);
+    }
+    .model-tag {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(45,212,191,.1);
+      border: 1px solid rgba(45,212,191,.2);
+      color: var(--accent-teal);
+    }
+    .model-body { padding: 20px 24px 24px; }
+    .model-body .code-block { margin-top: 0; margin-bottom: 20px; }
+
+    /* ── Event table ──────────────────────────────────────────────────────── */
+    .event-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-top: 24px;
+    }
+    .event-table-wrap table { margin-bottom: 0; }
+    .event-table-wrap thead th { padding: 12px 16px; background: #050c1a; }
+    .event-table-wrap tbody td { padding: 12px 16px; }
+    td.td-event {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      color: #c4b5fd;
+      white-space: nowrap;
+    }
+
+    /* ── Flow diagram ─────────────────────────────────────────────────────── */
+    .flow-diagram {
+      background: #030811;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      line-height: 2;
+      color: #64748b;
+      overflow-x: auto;
+      margin: 16px 0;
+      white-space: pre;
+    }
+    .flow-diagram .fd-step   { color: #94a3b8; }
+    .flow-diagram .fd-actor  { color: var(--accent-cyan); font-weight: 600; }
+    .flow-diagram .fd-arrow  { color: var(--accent-teal); }
+    .flow-diagram .fd-event  { color: #c4b5fd; }
+    .flow-diagram .fd-method { color: #fbbf24; }
+    .flow-diagram .fd-ok     { color: #4ade80; }
+
+    /* ── Alert / note boxes ───────────────────────────────────────────────── */
+    .note-box {
+      background: rgba(56,189,248,.06);
+      border: 1px solid rgba(56,189,248,.2);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      font-size: .875rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-top: 16px;
+    }
+    .note-box strong { color: var(--accent-cyan); }
+    .warn-box {
+      background: rgba(251,191,36,.05);
+      border: 1px solid rgba(251,191,36,.2);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      font-size: .875rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-top: 16px;
+    }
+    .warn-box strong { color: #fbbf24; }
+
+    /* ── Separator ────────────────────────────────────────────────────────── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 40px 0;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+    }
+    .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ── Responsive ───────────────────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      .page-wrap { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main-content { padding: 32px 20px 64px; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 600px) {
+      .main-content { padding: 24px 16px 48px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="./index.html">
+      <img src="./icon.png" alt="Direct Connector icon" />
+      Direct Connector
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">&larr; Back to Home</a></li>
+      <li><a href="./getting-started.html">Getting Started</a></li>
+      <li><a href="./architecture.html">Architecture</a></li>
+      <li><a href="./contributing.html">Contributing</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.5-.3-5.1-1.3-5.1-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.2 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.7 21.4 24 17.1 24 12c0-6.3-5.2-11.5-12-11.5z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-wrap">
+
+    <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">Introduction</div>
+        <ul class="sidebar-nav">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#models">TypeScript Models</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">Backend API</div>
+        <ul class="sidebar-nav">
+          <li><a href="#config-api">Config</a></li>
+          <li><a href="#key-management">Key Management</a></li>
+          <li><a href="#ssh-setup">SSH Setup</a></li>
+          <li><a href="#ssh-tunnel">SSH Tunnel</a></li>
+          <li><a href="#p2p-api">P2P</a></li>
+          <li><a href="#relay-api">Relay</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">Frontend</div>
+        <ul class="sidebar-nav">
+          <li><a href="#frontend-utils">Utilities</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-label">Reference</div>
+        <ul class="sidebar-nav">
+          <li><a href="#events">Backend Events</a></li>
+          <li><a href="#error-conventions">Error Conventions</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- ── Main ────────────────────────────────────────────────────────────── -->
+    <main class="main-content">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-badge">API Reference</div>
+        <h1>Direct Connector API</h1>
+        <p>Complete reference for all backend methods, TypeScript models, backend-emitted events, and frontend utility functions. All Go methods on <code>App</code> are automatically bound by Wails and become <code>async</code> TypeScript functions callable from Vue components.</p>
+      </div>
+
+      <!-- ── 1. Overview ──────────────────────────────────────────────────── -->
+      <section class="api-section" id="overview">
+        <div class="s-label">Introduction</div>
+        <h2 class="s-title">Overview — Wails Binding Pattern</h2>
+        <div class="s-body">
+          Direct Connector uses <a href="https://wails.io" style="color:var(--accent-cyan)">Wails v2</a> to bridge Go and a Vue 3 frontend. Every exported method on the <code>App</code> struct in <code>app-wails/app.go</code> is automatically code-generated into <code>frontend/wailsjs/go/main/App.d.ts</code> as an <code>async</code> TypeScript function that returns a <code>Promise</code>.
+        </div>
+
+        <div class="code-label">Calling a backend method from Vue</div>
+        <div class="code-block"><span class="kw">import</span> { <span class="fn">LoadConfig</span>, <span class="fn">SaveConfig</span>, <span class="fn">StartTunnel</span> } <span class="kw">from</span> <span class="str">'../wailsjs/go/main/App'</span>
+<span class="kw">import</span> { main } <span class="kw">from</span> <span class="str">'../wailsjs/go/models'</span>
+
+<span class="cmt">// All calls are async — await them</span>
+<span class="kw">const</span> settings = <span class="kw">await</span> <span class="fn">LoadConfig</span>()           <span class="cmt">// returns main.AppSettings</span>
+<span class="kw">await</span> <span class="fn">SaveConfig</span>(settings)                     <span class="cmt">// void</span>
+<span class="kw">const</span> err = <span class="kw">await</span> <span class="fn">StartTunnel</span>(tunnelSettings)  <span class="cmt">// "" on success</span></div>
+
+        <div class="code-label">Listening to backend events from Vue</div>
+        <div class="code-block"><span class="kw">import</span> { <span class="fn">EventsOn</span>, <span class="fn">EventsOff</span> } <span class="kw">from</span> <span class="str">'../../wailsjs/runtime'</span>
+
+<span class="cmt">// Register a listener (call from onMounted)</span>
+<span class="fn">EventsOn</span>(<span class="str">'tunnel:status'</span>, (status: <span class="type">string</span>) =&gt; {
+  console.log(<span class="str">'Tunnel status:'</span>, status)
+})
+
+<span class="cmt">// Clean up (call from onUnmounted)</span>
+<span class="fn">EventsOff</span>(<span class="str">'tunnel:status'</span>)</div>
+
+        <div class="note-box"><strong>Model classes</strong> in <code>models.ts</code> include a static <code>createFrom(source)</code> factory and a constructor that handles JSON deserialization. Wails uses these automatically when deserializing Go struct return values.</div>
+      </section>
+
+      <!-- ── 2. Models ────────────────────────────────────────────────────── -->
+      <section class="api-section" id="models">
+        <div class="s-label">Data Types</div>
+        <h2 class="s-title">TypeScript Models</h2>
+        <div class="s-body">All models are defined in <code>app-wails/frontend/wailsjs/go/models.ts</code> (auto-generated) and mirrored from Go structs in <code>app-wails/app.go</code>.</div>
+
+        <!-- AppSettings -->
+        <div class="model-card" id="model-appsettings">
+          <div class="model-header">
+            <span class="model-name">AppSettings</span>
+            <span class="model-tag">persisted config</span>
+          </div>
+          <div class="model-body">
+            <div class="code-block"><span class="kw">class</span> <span class="type">AppSettings</span> {
+  <span class="key">host</span>:         <span class="type">string</span>   <span class="cmt">// SSH server hostname or IP</span>
+  <span class="key">port</span>:         <span class="type">string</span>   <span class="cmt">// SSH port (default "443")</span>
+  <span class="key">forwardPorts</span>: <span class="type">string</span>   <span class="cmt">// comma-separated ports to forward</span>
+  <span class="key">user</span>:         <span class="type">string</span>   <span class="cmt">// SSH username</span>
+  <span class="key">ipVersion</span>:    <span class="type">string</span>   <span class="cmt">// "4", "6", or "" (any)</span>
+  <span class="key">forwardMode</span>:  <span class="type">string</span>   <span class="cmt">// "local" or "remote"</span>
+  <span class="key">keyPath</span>:      <span class="type">string</span>   <span class="cmt">// path to SSH private key (or "")</span>
+  <span class="key">verbose</span>:      <span class="type">boolean</span>  <span class="cmt">// enable SSH -v verbose output</span>
+  <span class="key">useWslSsh</span>:    <span class="type">boolean</span>  <span class="cmt">// Windows: run ssh inside WSL</span>
+}</div>
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">host</td><td class="td-type">string</td><td class="td-desc">SSH server hostname or IP address.</td></tr>
+                <tr><td class="td-name">port</td><td class="td-type">string</td><td class="td-desc">SSH port number. Recommended default is <code>"443"</code> to bypass firewalls.</td></tr>
+                <tr><td class="td-name">forwardPorts</td><td class="td-type">string</td><td class="td-desc">Comma-separated list of TCP ports to forward, e.g. <code>"1883,3391"</code>.</td></tr>
+                <tr><td class="td-name">user</td><td class="td-type">string</td><td class="td-desc">SSH username on the remote server.</td></tr>
+                <tr><td class="td-name">ipVersion</td><td class="td-type">string</td><td class="td-desc"><code>"4"</code> for IPv4-only, <code>"6"</code> for IPv6-only, or <code>""</code> for auto.</td></tr>
+                <tr><td class="td-name">forwardMode</td><td class="td-type">string</td><td class="td-desc"><code>"local"</code> for local port forwarding (<code>-L</code>), <code>"remote"</code> for reverse forwarding (<code>-R</code>).</td></tr>
+                <tr><td class="td-name">keyPath</td><td class="td-type">string</td><td class="td-desc">Absolute path to SSH private key file. Empty string uses the app-managed key.</td></tr>
+                <tr><td class="td-name">verbose</td><td class="td-type">boolean</td><td class="td-desc">Enables SSH <code>-v</code> verbose logging to the tunnel log stream.</td></tr>
+                <tr><td class="td-name">useWslSsh</td><td class="td-type">boolean</td><td class="td-desc">Windows-only: invoke <code>wsl.exe ssh</code> so the SSH process runs inside the WSL network namespace.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Example JSON</div>
+            <div class="code-block">{
+  <span class="key">"host"</span>:         <span class="str">"my-server.example.com"</span>,
+  <span class="key">"port"</span>:         <span class="str">"443"</span>,
+  <span class="key">"forwardPorts"</span>: <span class="str">"1883,3391"</span>,
+  <span class="key">"user"</span>:         <span class="str">"ubuntu"</span>,
+  <span class="key">"ipVersion"</span>:    <span class="str">""</span>,
+  <span class="key">"forwardMode"</span>:  <span class="str">"remote"</span>,
+  <span class="key">"keyPath"</span>:      <span class="str">""</span>,
+  <span class="key">"verbose"</span>:      <span class="num">false</span>,
+  <span class="key">"useWslSsh"</span>:    <span class="num">false</span>
+}</div>
+          </div>
+        </div>
+
+        <!-- TunnelSettings -->
+        <div class="model-card" id="model-tunnelsettings">
+          <div class="model-header">
+            <span class="model-name">TunnelSettings</span>
+            <span class="model-tag">runtime params</span>
+          </div>
+          <div class="model-body">
+            <p class="method-desc">Carries SSH tunnel parameters from the frontend to the backend. Structurally identical to <code>AppSettings</code> — used as the argument to <code>StartTunnel</code>, <code>SSHSetupStart</code>, and <code>SSHCheckKeyAuth</code>. The separation allows future divergence between persisted config and runtime overrides.</p>
+            <div class="code-block"><span class="kw">class</span> <span class="type">TunnelSettings</span> {
+  <span class="key">host</span>:         <span class="type">string</span>
+  <span class="key">port</span>:         <span class="type">string</span>
+  <span class="key">forwardPorts</span>: <span class="type">string</span>
+  <span class="key">user</span>:         <span class="type">string</span>
+  <span class="key">ipVersion</span>:    <span class="type">string</span>
+  <span class="key">forwardMode</span>:  <span class="type">string</span>
+  <span class="key">keyPath</span>:      <span class="type">string</span>
+  <span class="key">verbose</span>:      <span class="type">boolean</span>
+  <span class="key">useWslSsh</span>:    <span class="type">boolean</span>
+}</div>
+            <p class="method-desc" style="margin-top:12px;margin-bottom:0">Fields are identical to <code>AppSettings</code> — see the table above.</p>
+          </div>
+        </div>
+
+        <!-- P2PTURNServer -->
+        <div class="model-card" id="model-p2pturnserver">
+          <div class="model-header">
+            <span class="model-name">P2PTURNServer</span>
+            <span class="model-tag">ICE config</span>
+          </div>
+          <div class="model-body">
+            <div class="code-block"><span class="kw">class</span> <span class="type">P2PTURNServer</span> {
+  <span class="key">url</span>:        <span class="type">string</span>  <span class="cmt">// e.g. "turn:relay.example.com:3478"</span>
+  <span class="key">username</span>:   <span class="type">string</span>
+  <span class="key">credential</span>: <span class="type">string</span>
+}</div>
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">url</td><td class="td-type">string</td><td class="td-desc">TURN server URL. Must start with <code>turn:</code> or <code>turns:</code>.</td></tr>
+                <tr><td class="td-name">username</td><td class="td-type">string</td><td class="td-desc">TURN authentication username.</td></tr>
+                <tr><td class="td-name">credential</td><td class="td-type">string</td><td class="td-desc">TURN authentication password/credential.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Example JSON</div>
+            <div class="code-block">{ <span class="key">"url"</span>: <span class="str">"turn:relay.example.com:3478"</span>, <span class="key">"username"</span>: <span class="str">"alice"</span>, <span class="key">"credential"</span>: <span class="str">"s3cr3t"</span> }</div>
+          </div>
+        </div>
+
+        <!-- P2PSessionConfig -->
+        <div class="model-card" id="model-p2psessionconfig">
+          <div class="model-header">
+            <span class="model-name">P2PSessionConfig</span>
+            <span class="model-tag">ICE tuning</span>
+          </div>
+          <div class="model-body">
+            <div class="code-block"><span class="kw">class</span> <span class="type">P2PSessionConfig</span> {
+  <span class="key">turnServers</span>:       <span class="type">P2PTURNServer[]</span>  <span class="cmt">// additional TURN relays</span>
+  <span class="key">tcpMuxPort</span>:        <span class="type">number</span>           <span class="cmt">// 0 = disabled</span>
+  <span class="key">gatherTimeoutSecs</span>: <span class="type">number</span>           <span class="cmt">// 0 = default (10s)</span>
+}</div>
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">turnServers</td><td class="td-type">P2PTURNServer[]</td><td class="td-desc">List of TURN relay servers injected into the ICE agent configuration.</td></tr>
+                <tr><td class="td-name">tcpMuxPort</td><td class="td-type">number</td><td class="td-desc">If non-zero, the WebRTC engine multiplexes ICE traffic over this single TCP port, useful behind strict firewalls.</td></tr>
+                <tr><td class="td-name">gatherTimeoutSecs</td><td class="td-type">number</td><td class="td-desc">ICE candidate gathering timeout in seconds. <code>0</code> uses the default of 10 seconds.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RelayCredentials -->
+        <div class="model-card" id="model-relaycredentials">
+          <div class="model-header">
+            <span class="model-name">RelayCredentials</span>
+            <span class="model-tag">relay output</span>
+          </div>
+          <div class="model-body">
+            <div class="code-block"><span class="kw">class</span> <span class="type">RelayCredentials</span> {
+  <span class="key">turnAddr</span>:    <span class="type">string</span>   <span class="cmt">// "turn:&lt;ip&gt;:&lt;port&gt;" (UDP transport)</span>
+  <span class="key">turnTcpAddr</span>: <span class="type">string</span>   <span class="cmt">// "turn:&lt;ip&gt;:&lt;port&gt;?transport=tcp" (empty if TCP failed)</span>
+  <span class="key">username</span>:    <span class="type">string</span>
+  <span class="key">password</span>:    <span class="type">string</span>
+  <span class="key">isRunning</span>:   <span class="type">boolean</span>
+}</div>
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">turnAddr</td><td class="td-type">string</td><td class="td-desc">Full TURN URL with UDP transport for use in <code>P2PTURNServer.url</code>.</td></tr>
+                <tr><td class="td-name">turnTcpAddr</td><td class="td-type">string</td><td class="td-desc">Full TURN URL with TCP transport. Empty string if the TCP listener failed to start.</td></tr>
+                <tr><td class="td-name">username</td><td class="td-type">string</td><td class="td-desc">Short-lived TURN username (rotated each relay start).</td></tr>
+                <tr><td class="td-name">password</td><td class="td-type">string</td><td class="td-desc">Short-lived TURN password.</td></tr>
+                <tr><td class="td-name">isRunning</td><td class="td-type">boolean</td><td class="td-desc">Whether the embedded relay is currently active. All address fields are empty strings when <code>false</code>.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Example JSON (relay running)</div>
+            <div class="code-block">{
+  <span class="key">"turnAddr"</span>:    <span class="str">"turn:203.0.113.10:3478"</span>,
+  <span class="key">"turnTcpAddr"</span>: <span class="str">"turn:203.0.113.10:3478?transport=tcp"</span>,
+  <span class="key">"username"</span>:    <span class="str">"user-1718000000"</span>,
+  <span class="key">"password"</span>:    <span class="str">"aBcDeFgH"</span>,
+  <span class="key">"isRunning"</span>:   <span class="num">true</span>
+}</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. Config API ─────────────────────────────────────────────────── -->
+      <section class="api-section" id="config-api">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">Config API</h2>
+        <div class="s-body">Persists user configuration as JSON at <code>$XDG_CONFIG_HOME/MQTTTunnelManager/tunnel_config.json</code> (or platform equivalent). Loading is always safe — missing files return zero-value defaults.</div>
+
+        <div class="method-card" id="method-loadconfig">
+          <div class="method-header">
+            <span class="method-badge badge-obj">AppSettings</span>
+            <span class="method-sig"><span class="fn-name">LoadConfig</span>(): <span class="fn-ret">Promise&lt;main.AppSettings&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reads the persisted JSON config file from disk and returns it as an <code>AppSettings</code> object. If the file does not exist or cannot be parsed, safe zero-value defaults are returned (no error is thrown).</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-type">main.AppSettings</td><td class="td-desc">The full persisted configuration. All string fields default to <code>""</code> and booleans to <code>false</code> if config is absent.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Usage example</div>
+            <div class="code-block"><span class="kw">import</span> { <span class="fn">LoadConfig</span> } <span class="kw">from</span> <span class="str">'../wailsjs/go/main/App'</span>
+
+<span class="kw">const</span> settings = <span class="kw">await</span> <span class="fn">LoadConfig</span>()
+console.log(settings.host, settings.port)  <span class="cmt">// "my-server.example.com" "443"</span></div>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-saveconfig">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">SaveConfig</span>(<span class="fn-param">settings</span>: <span class="fn-type">main.AppSettings</span>): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Serializes and persists the given settings to disk. Creates the config directory if absent. Silently overwrites any existing configuration.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">settings</td><td class="td-type">main.AppSettings</td><td class="td-desc">Full settings object to persist. All fields are written.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Usage example</div>
+            <div class="code-block"><span class="kw">import</span> { <span class="fn">SaveConfig</span> } <span class="kw">from</span> <span class="str">'../wailsjs/go/main/App'</span>
+<span class="kw">import</span> { main } <span class="kw">from</span> <span class="str">'../wailsjs/go/models'</span>
+
+<span class="kw">const</span> s = <span class="kw">new</span> <span class="type">main.AppSettings</span>()
+s.host = <span class="str">'my-server.example.com'</span>
+s.port = <span class="str">'443'</span>
+s.user = <span class="str">'ubuntu'</span>
+<span class="kw">await</span> <span class="fn">SaveConfig</span>(s)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. Key Management ─────────────────────────────────────────────── -->
+      <section class="api-section" id="key-management">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">Key Management API</h2>
+        <div class="s-body">Manages the app-owned Ed25519 SSH keypair stored in the config directory. The public key is used for one-click SSH key installation. Also provides helpers for the OS file picker and clipboard.</div>
+
+        <div class="method-card" id="method-appkeyexists">
+          <div class="method-header">
+            <span class="method-badge badge-bool">boolean</span>
+            <span class="method-sig"><span class="fn-name">AppKeyExists</span>(): <span class="fn-ret">Promise&lt;boolean&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reports whether the app-managed Ed25519 keypair is present on disk. Both the private key (<code>id_ed25519_app</code>) and public key (<code>id_ed25519_app.pub</code>) must exist for this to return <code>true</code>.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">boolean</td><td class="td-desc"><code>true</code> if the keypair exists on disk.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-generateappkey">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">GenerateAppKey</span>(): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Creates a new Ed25519 keypair in the config directory. If a keypair already exists it is overwritten. Returns an empty string on success or an error message on failure.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> on success; non-empty error message on failure.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-loadpublickey">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">LoadPublicKey</span>(): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Returns the app public key as a single <code>authorized_keys</code>-formatted line (e.g. <code>ssh-ed25519 AAAA... direct-connector</code>), ready to paste into a remote <code>~/.ssh/authorized_keys</code>. Returns <code>""</code> if the key does not exist.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc">The public key as an <code>authorized_keys</code> entry, or <code>""</code> if not found.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-appprivatekeypath">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">AppPrivateKeyPath</span>(): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Returns the absolute file-system path to the app-managed private key (e.g. <code>/home/user/.config/MQTTTunnelManager/id_ed25519_app</code>). Useful when constructing a <code>TunnelSettings</code> that should use the app key.</p>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-browsefile">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">BrowseFile</span>(<span class="fn-param">title</span>: <span class="fn-type">string</span>, <span class="fn-param">defaultDir</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Opens the native OS file picker dialog. On macOS uses <code>NSOpenPanel</code>; on Windows uses <code>IFileOpenDialog</code>. If <code>defaultDir</code> is <code>""</code>, defaults to <code>~/.ssh</code>. Returns the selected path, or <code>""</code> if the dialog is cancelled.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">title</td><td class="td-type">string</td><td class="td-desc">Dialog window title, e.g. <code>"Select SSH Private Key"</code>.</td></tr>
+                <tr><td class="td-name">defaultDir</td><td class="td-type">string</td><td class="td-desc">Initial directory. Pass <code>""</code> to use <code>~/.ssh</code>.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc">Absolute path to the chosen file, or <code>""</code> if cancelled or an error occurred.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-copytoclipboard">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">CopyToClipboard</span>(<span class="fn-param">text</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Writes the given text to the OS clipboard via the Wails runtime. Commonly used to copy the app public key so it can be pasted into <code>authorized_keys</code>.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">text</td><td class="td-type">string</td><td class="td-desc">The text to place on the clipboard.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. SSH Setup API ──────────────────────────────────────────────── -->
+      <section class="api-section" id="ssh-setup">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">SSH Setup API</h2>
+        <div class="s-body">One-click SSH public-key installation. The flow is interactive: the backend emits <code>setup:prompt</code> events when it needs the user to confirm a host fingerprint or provide a password. The frontend answers by calling <code>SSHSetupReply</code>.</div>
+
+        <!-- Flow diagram -->
+        <div class="code-label">SSH Setup interactive flow</div>
+        <div class="flow-diagram"><span class="fd-actor">Frontend</span>                               <span class="fd-actor">Backend (Go goroutine)</span>
+   |                                          |
+   |──<span class="fd-method">SSHSetupStart(settings)</span>─────────────&gt;|  generates key if absent
+   |                                          |  dials SSH server
+   |&lt;──<span class="fd-event">setup:log</span> "Connecting…"─────────────|
+   |                                          |
+   |&lt;──<span class="fd-event">setup:prompt</span> {kind:"fingerprint"}───|  server fingerprint unknown
+   |──<span class="fd-method">SSHSetupReply("yes")</span>────────────────&gt;|  user confirms
+   |                                          |
+   |&lt;──<span class="fd-event">setup:prompt</span> {kind:"password"}──────|  password auth required
+   |──<span class="fd-method">SSHSetupReply("s3cr3t")</span>─────────────&gt;|  user provides password
+   |                                          |
+   |&lt;──<span class="fd-event">setup:log</span> "Appending public key…"──|
+   |&lt;──<span class="fd-event">setup:done</span> {ok:true, message:"…"}──|  <span class="fd-ok">✓ key installed</span>
+   |</div>
+
+        <div class="method-card" id="method-sshsetupstart">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">SSHSetupStart</span>(<span class="fn-param">settings</span>: <span class="fn-type">main.TunnelSettings</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Begins the one-time SSH public-key installation asynchronously. Generates an app keypair if none exists. Dials the server using the credentials in <code>settings</code> and installs the public key via SSH password auth. Interactive steps emit <code>setup:prompt</code> events; progress is reported via <code>setup:log</code>; completion is reported via <code>setup:done</code>.</p>
+            <div class="note-box"><strong>Note:</strong> Returns immediately with <code>""</code> — the actual work happens in a goroutine. Use the <code>setup:done</code> event to detect completion.</div>
+            <div class="param-label" style="margin-top:16px">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">settings</td><td class="td-type">main.TunnelSettings</td><td class="td-desc">SSH connection parameters. <code>host</code>, <code>port</code>, and <code>user</code> are used. <code>keyPath</code> is ignored — the app-managed key is always used.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> if setup started successfully. Non-empty error string if a setup is already in progress or if key generation failed.</td></tr></tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Emitted events</div>
+            <table>
+              <thead><tr><th>Event</th><th>Payload type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-event">setup:log</td><td class="td-type">string</td><td class="td-desc">Progress messages prefixed with a timestamp (<code>HH:MM:SS - message</code>).</td></tr>
+                <tr><td class="td-event">setup:prompt</td><td class="td-type">SetupPrompt</td><td class="td-desc">Emitted when user input is required. See below.</td></tr>
+                <tr><td class="td-event">setup:done</td><td class="td-type">SetupResult</td><td class="td-desc">Emitted when the setup flow completes (success or failure).</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">SetupPrompt payload</div>
+            <div class="code-block">{ <span class="key">kind</span>: <span class="str">"fingerprint"</span> | <span class="str">"password"</span>, <span class="key">message</span>: <span class="type">string</span>, <span class="key">fingerprint</span>: <span class="type">string</span> }</div>
+            <div class="code-label">SetupResult payload</div>
+            <div class="code-block">{ <span class="key">ok</span>: <span class="type">boolean</span>, <span class="key">message</span>: <span class="type">string</span> }</div>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-sshsetupreply">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">SSHSetupReply</span>(<span class="fn-param">answer</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Forwards the user's answer to the currently blocked <code>sshsetup.Installer</code>. Must be called after each <code>setup:prompt</code> event to unblock the setup goroutine. Safe to call when no setup is in progress (no-op).</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">answer</td><td class="td-type">string</td><td class="td-desc">For <code>kind:"fingerprint"</code> prompts: pass <code>"yes"</code> to accept or <code>"no"</code> to reject. For <code>kind:"password"</code> prompts: pass the SSH password.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-sshsetupcancel">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">SSHSetupCancel</span>(): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Aborts an in-progress setup by cancelling the setup context. The setup goroutine will exit and emit a <code>setup:done</code> event with <code>ok: false</code>. Safe to call when no setup is running.</p>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-sshsetupbusy">
+          <div class="method-header">
+            <span class="method-badge badge-bool">boolean</span>
+            <span class="method-sig"><span class="fn-name">SSHSetupBusy</span>(): <span class="fn-ret">Promise&lt;boolean&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reports whether a key setup is currently in progress. Useful to restore UI state after a page reload or tab switch.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">boolean</td><td class="td-desc"><code>true</code> if a setup goroutine is currently running.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-sshcheckkeyauth">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">SSHCheckKeyAuth</span>(<span class="fn-param">settings</span>: <span class="fn-type">main.TunnelSettings</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Attempts a short no-op SSH dial using key authentication only (no password). Used by the frontend to verify that the installed public key is accepted by the server. Times out after 10 seconds.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">settings</td><td class="td-type">main.TunnelSettings</td><td class="td-desc">SSH connection parameters. Uses the app-managed private key; <code>keyPath</code> is ignored.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> if key auth succeeds. Non-empty error string if auth fails, key is missing, or connection times out.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6. SSH Tunnel ─────────────────────────────────────────────────── -->
+      <section class="api-section" id="ssh-tunnel">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">SSH Tunnel API</h2>
+        <div class="s-body">Manages the long-running SSH tunnel process. The tunnel manager wraps <code>os/exec</code> and handles automatic reconnect. Status changes and log output are streamed to the frontend via events.</div>
+
+        <div class="method-card" id="method-starttunnel">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">StartTunnel</span>(<span class="fn-param">settings</span>: <span class="fn-type">main.TunnelSettings</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Launches an SSH tunnel using the given settings. Returns immediately after spawning the tunnel process. Tunnel status and log lines are delivered via the <code>tunnel:status</code> and <code>tunnel:log</code> events.</p>
+            <div class="warn-box"><strong>WSL path validation:</strong> When <code>settings.useWslSsh</code> is <code>true</code> and <code>settings.keyPath</code> is set, the key path must be a POSIX/Linux path (no drive letters, no backslashes). Windows paths are rejected immediately with a descriptive error message before any process is spawned.</div>
+            <div class="param-label" style="margin-top:16px">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">settings</td><td class="td-type">main.TunnelSettings</td><td class="td-desc">Full SSH tunnel configuration.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> on successful start. Non-empty error string if the WSL path validation fails. The tunnel itself may still fail later — monitor <code>tunnel:status</code> for ongoing state.</td></tr></tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Emitted events</div>
+            <table>
+              <thead><tr><th>Event</th><th>Payload</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-event">tunnel:status</td><td class="td-type">string</td><td class="td-desc">Tunnel lifecycle state. Values: <code>"connecting"</code>, <code>"connected"</code>, <code>"disconnected"</code>, <code>"reconnecting"</code>, <code>"stopped"</code>.</td></tr>
+                <tr><td class="td-event">tunnel:log</td><td class="td-type">string</td><td class="td-desc">Timestamped SSH process output lines (<code>HH:MM:SS - message</code>).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-stoptunnel">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">StopTunnel</span>(): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Terminates the running SSH tunnel process and disables automatic reconnect. Emits a final <code>tunnel:status "stopped"</code> event. Safe to call when no tunnel is running.</p>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-istunnelrunning">
+          <div class="method-header">
+            <span class="method-badge badge-bool">boolean</span>
+            <span class="method-sig"><span class="fn-name">IsTunnelRunning</span>(): <span class="fn-ret">Promise&lt;boolean&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reports whether the SSH tunnel is currently active (connected or in the reconnect loop). Use this on app load to restore UI state.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">boolean</td><td class="td-desc"><code>true</code> if the tunnel manager is running (regardless of whether the SSH connection is established).</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 7. P2P API ────────────────────────────────────────────────────── -->
+      <section class="api-section" id="p2p-api">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">P2P API</h2>
+        <div class="s-body">Serverless peer-to-peer connections via WebRTC (powered by <code>pion/webrtc</code>). SDP blobs are base64-encoded JSON exchanged by copy-paste. STUN is used only for NAT discovery; no relay traffic unless TURN servers are configured. Two roles: <strong>Consumer</strong> (initiator, generates offer) and <strong>Provider</strong> (responder, generates answer).</div>
+
+        <div class="method-card" id="method-p2pgenerateoffer">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">P2PGenerateOffer</span>(<span class="fn-param">ports</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Creates a WebRTC offer as the <strong>Consumer</strong> (initiator) side. Gathers ICE candidates, then returns a compact base64-encoded SDP blob for the user to paste to the Provider. The session remains open waiting for the answer.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">ports</td><td class="td-type">string</td><td class="td-desc">Comma-separated TCP port numbers to forward, e.g. <code>"1883,3391"</code>.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc">Base64-encoded SDP offer blob on success. <code>"ERROR: &lt;message&gt;"</code> on failure (e.g. if a session is already active).</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-p2pacceptanswer">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">P2PAcceptAnswer</span>(<span class="fn-param">answer</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Feeds the Provider's SDP answer into the active Consumer session, completing the ICE handshake. Must be called after <code>P2PGenerateOffer</code> succeeds and the user has received the answer from the Provider side.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">answer</td><td class="td-type">string</td><td class="td-desc">Base64-encoded SDP answer blob produced by <code>P2PProvideAnswer</code> on the Provider's machine.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> on success. <code>"ERROR: &lt;message&gt;"</code> if no session is active or if the answer blob is invalid.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-p2pprovideanswer">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">P2PProvideAnswer</span>(<span class="fn-param">offerSDP</span>: <span class="fn-type">string</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Accepts the Consumer's SDP offer and creates a WebRTC answer as the <strong>Provider</strong> side. Returns a base64-encoded answer blob for the user to paste back to the Consumer.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">offerSDP</td><td class="td-type">string</td><td class="td-desc">Base64-encoded SDP offer blob produced by <code>P2PGenerateOffer</code> on the Consumer's machine.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc">Base64-encoded SDP answer blob on success. <code>"ERROR: &lt;message&gt;"</code> on failure.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-p2pstop">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">P2PStop</span>(): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Terminates the active P2P session — cancels the ICE context and closes all data channels. Safe to call when no session is active.</p>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-p2pisactive">
+          <div class="method-header">
+            <span class="method-badge badge-bool">boolean</span>
+            <span class="method-sig"><span class="fn-name">P2PIsActive</span>(): <span class="fn-ret">Promise&lt;boolean&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reports whether a P2P session is currently live (ICE connection established and data channels open).</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">boolean</td><td class="td-desc"><code>true</code> if a P2P session exists and its ICE connection is active.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-p2psetconfig">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">P2PSetConfig</span>(<span class="fn-param">config</span>: <span class="fn-type">main.P2PSessionConfig</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Stores per-session ICE tuning parameters. Call this <em>before</em> <code>P2PGenerateOffer</code> or <code>P2PProvideAnswer</code>. Safe to call at any time including when a session is active (applies to next session only). Validates all TURN server URLs.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">config</td><td class="td-type">main.P2PSessionConfig</td><td class="td-desc">ICE tuning config including TURN servers, TCP mux port, and gather timeout.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> on success. Non-empty error string if any TURN URL does not start with <code>turn:</code> or <code>turns:</code>.</td></tr></tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Emitted events</div>
+            <table>
+              <thead><tr><th>Event</th><th>Payload</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-event">p2p:status</td><td class="td-type">string</td><td class="td-desc">ICE connection state changes, e.g. <code>"checking"</code>, <code>"connected"</code>, <code>"disconnected"</code>, <code>"failed"</code>.</td></tr>
+                <tr><td class="td-event">p2p:log</td><td class="td-type">string</td><td class="td-desc">Timestamped WebRTC diagnostic messages (<code>HH:MM:SS - message</code>).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 8. Relay API ──────────────────────────────────────────────────── -->
+      <section class="api-section" id="relay-api">
+        <div class="s-label">Backend API</div>
+        <h2 class="s-title">Relay API</h2>
+        <div class="s-body">Manages the embedded TURN relay server. When both machines are behind NAT and direct peer-to-peer is not possible, you can run the embedded relay on a public machine and configure both P2P sessions to use it as a TURN server.</div>
+
+        <div class="method-card" id="method-relaystart">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">RelayStart</span>(<span class="fn-param">port</span>: <span class="fn-type">number</span>): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Starts the embedded TURN relay on the given UDP port (and attempts to start a TCP listener on the same port). Discovers the public IP via STUN to populate <code>RelayGetCredentials</code>. Emits <code>relay:log</code> events for all relay activity.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">port</td><td class="td-type">number</td><td class="td-desc">UDP port to bind the TURN relay on. Typical value: <code>3478</code>. The same port is used for TCP.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc"><code>""</code> on successful start. Non-empty error string if the port is already in use or binding fails.</td></tr></tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Emitted events</div>
+            <table>
+              <thead><tr><th>Event</th><th>Payload</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-event">relay:log</td><td class="td-type">string</td><td class="td-desc">Timestamped relay activity messages (<code>HH:MM:SS - message</code>).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-relaystop">
+          <div class="method-header">
+            <span class="method-badge badge-void">void</span>
+            <span class="method-sig"><span class="fn-name">RelayStop</span>(): <span class="fn-ret">Promise&lt;void&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Shuts down the embedded TURN relay and releases the bound port. Safe to call when the relay is not running.</p>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-relayisrunning">
+          <div class="method-header">
+            <span class="method-badge badge-bool">boolean</span>
+            <span class="method-sig"><span class="fn-name">RelayIsRunning</span>(): <span class="fn-ret">Promise&lt;boolean&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Reports whether the embedded TURN relay is currently active.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">boolean</td><td class="td-desc"><code>true</code> if the relay is running and accepting TURN allocations.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-relaygetcredentials">
+          <div class="method-header">
+            <span class="method-badge badge-obj">RelayCredentials</span>
+            <span class="method-sig"><span class="fn-name">RelayGetCredentials</span>(): <span class="fn-ret">Promise&lt;main.RelayCredentials&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Returns the current relay address and short-lived credentials as a <code>RelayCredentials</code> object. Credentials are rotated each time the relay is started. All address fields are empty strings when the relay is not running.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">main.RelayCredentials</td><td class="td-desc">TURN address, TCP TURN address, username, password, and running state.</td></tr></tbody>
+            </table>
+            <div class="code-label">Usage — feed credentials directly into P2PSetConfig</div>
+            <div class="code-block"><span class="kw">const</span> creds = <span class="kw">await</span> <span class="fn">RelayGetCredentials</span>()
+<span class="kw">if</span> (creds.isRunning) {
+  <span class="kw">await</span> <span class="fn">P2PSetConfig</span>({
+    turnServers: [{
+      url:        creds.turnAddr,
+      username:   creds.username,
+      credential: creds.password,
+    }],
+    tcpMuxPort: <span class="num">0</span>,
+    gatherTimeoutSecs: <span class="num">0</span>,
+  })
+}</div>
+          </div>
+        </div>
+
+        <div class="method-card" id="method-getpublicip">
+          <div class="method-header">
+            <span class="method-badge badge-str">string</span>
+            <span class="method-sig"><span class="fn-name">GetPublicIP</span>(): <span class="fn-ret">Promise&lt;string&gt;</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Returns the machine's current public IP address as discovered via STUN when the relay was last started. The frontend displays this to guide the user through firewall/port-forward setup for cross-network TURN use.</p>
+            <div class="param-label">Returns</div>
+            <table>
+              <thead><tr><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td class="td-type">string</td><td class="td-desc">Public IPv4 address string (e.g. <code>"203.0.113.10"</code>), or <code>""</code> if the relay has never been started or STUN discovery failed.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 9. Frontend Utilities ─────────────────────────────────────────── -->
+      <section class="api-section" id="frontend-utils">
+        <div class="s-label">Frontend</div>
+        <h2 class="s-title">Frontend Utilities</h2>
+        <div class="s-body">Pure TypeScript helpers in <code>app-wails/frontend/src/utils/portValidation.ts</code>. Used by Vue components to validate port inputs before calling backend methods.</div>
+
+        <div class="method-card" id="util-validateport">
+          <div class="method-header">
+            <span class="method-badge badge-str">string|null</span>
+            <span class="method-sig"><span class="fn-name">validatePort</span>(<span class="fn-param">portStr</span>: <span class="fn-type">string</span>, <span class="fn-param">label</span>?: <span class="fn-type">string</span>): <span class="fn-ret">string | null</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Validates a single TCP port string. Trims whitespace. Returns <code>null</code> for empty strings (presence check is the caller's responsibility). Returns <code>null</code> on success or an error message string on failure.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">portStr</td><td class="td-type">string</td><td class="td-type">—</td><td class="td-desc">The port string to validate.</td></tr>
+                <tr><td class="td-name">label</td><td class="td-type">string</td><td class="td-type">"Port"</td><td class="td-desc">Label used in the error message, e.g. <code>"SSH Port"</code>.</td></tr>
+              </tbody>
+            </table>
+            <div class="param-label" style="margin-top:16px">Returns</div>
+            <table>
+              <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td class="td-type">null</td><td class="td-desc">Port is valid (or empty — no error).</td></tr>
+                <tr><td class="td-type">string</td><td class="td-desc">Human-readable error, e.g. <code>"Port must be a number between 1 and 65535"</code>.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Examples</div>
+            <div class="code-block"><span class="fn">validatePort</span>(<span class="str">"443"</span>)                   <span class="cmt">// null   ✓ valid</span>
+<span class="fn">validatePort</span>(<span class="str">"  1883  "</span>)              <span class="cmt">// null   ✓ trims whitespace</span>
+<span class="fn">validatePort</span>(<span class="str">""</span>)                    <span class="cmt">// null   ✓ empty — no error (presence check elsewhere)</span>
+<span class="fn">validatePort</span>(<span class="str">"0"</span>)                   <span class="cmt">// "Port must be a number between 1 and 65535"</span>
+<span class="fn">validatePort</span>(<span class="str">"99999"</span>)               <span class="cmt">// "Port must be a number between 1 and 65535"</span>
+<span class="fn">validatePort</span>(<span class="str">"abc"</span>)                 <span class="cmt">// "Port must be a number between 1 and 65535"</span>
+<span class="fn">validatePort</span>(<span class="str">"8080"</span>, <span class="str">"Forward Port"</span>) <span class="cmt">// null   ✓ custom label</span></div>
+          </div>
+        </div>
+
+        <div class="method-card" id="util-validateports">
+          <div class="method-header">
+            <span class="method-badge badge-str">string|null</span>
+            <span class="method-sig"><span class="fn-name">validatePorts</span>(<span class="fn-param">portsStr</span>: <span class="fn-type">string</span>, <span class="fn-param">label</span>?: <span class="fn-type">string</span>): <span class="fn-ret">string | null</span></span>
+          </div>
+          <div class="method-body">
+            <p class="method-desc">Validates a comma-separated list of TCP port strings by calling <code>validatePort</code> on each element. Returns <code>null</code> only when all ports pass. Returns the first error message encountered.</p>
+            <div class="param-label">Parameters</div>
+            <table>
+              <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="td-name">portsStr</td><td class="td-type">string</td><td class="td-type">—</td><td class="td-desc">Comma-separated port list, e.g. <code>"1883,3391"</code>.</td></tr>
+                <tr><td class="td-name">label</td><td class="td-type">string</td><td class="td-type">"Port"</td><td class="td-desc">Label used in error messages.</td></tr>
+              </tbody>
+            </table>
+            <div class="code-label">Examples</div>
+            <div class="code-block"><span class="fn">validatePorts</span>(<span class="str">"1883,3391"</span>)           <span class="cmt">// null   ✓ both valid</span>
+<span class="fn">validatePorts</span>(<span class="str">"1883,99999"</span>)          <span class="cmt">// "Port must be a number between 1 and 65535"</span>
+<span class="fn">validatePorts</span>(<span class="str">"1883,abc"</span>)            <span class="cmt">// "Port must be a number between 1 and 65535"</span>
+<span class="fn">validatePorts</span>(<span class="str">"8080"</span>, <span class="str">"Forward Port"</span>) <span class="cmt">// null   ✓ single port with custom label</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 10. Events Reference ──────────────────────────────────────────── -->
+      <section class="api-section" id="events">
+        <div class="s-label">Reference</div>
+        <h2 class="s-title">Backend Events Reference</h2>
+        <div class="s-body">All events are emitted by Go via <code>runtime.EventsEmit(ctx, eventName, payload)</code> and consumed in Vue components via <code>EventsOn</code>/<code>EventsOff</code> from the Wails JS runtime.</div>
+
+        <div class="event-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Payload type</th>
+                <th>Emitted by</th>
+                <th>Consumed in</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="td-event">tunnel:status</td>
+                <td class="td-type">string</td>
+                <td class="td-desc"><code>StartTunnel</code> / tunnel.Manager</td>
+                <td class="td-desc">SshTab.vue</td>
+                <td class="td-desc">Tunnel lifecycle state. Values: <code>connecting</code>, <code>connected</code>, <code>disconnected</code>, <code>reconnecting</code>, <code>stopped</code>.</td>
+              </tr>
+              <tr>
+                <td class="td-event">tunnel:log</td>
+                <td class="td-type">string</td>
+                <td class="td-desc">tunnel.Manager</td>
+                <td class="td-desc">SshTab.vue</td>
+                <td class="td-desc">Timestamped SSH process output lines (<code>HH:MM:SS - message</code>).</td>
+              </tr>
+              <tr>
+                <td class="td-event">setup:log</td>
+                <td class="td-type">string</td>
+                <td class="td-desc"><code>SSHSetupStart</code> goroutine</td>
+                <td class="td-desc">SshTab.vue</td>
+                <td class="td-desc">Timestamped progress messages during SSH key installation.</td>
+              </tr>
+              <tr>
+                <td class="td-event">setup:prompt</td>
+                <td class="td-type">SetupPrompt</td>
+                <td class="td-desc"><code>SSHSetupStart</code> goroutine</td>
+                <td class="td-desc">SshTab.vue</td>
+                <td class="td-desc">Interactive prompt requiring a user response. Object: <code>{ kind, message, fingerprint }</code>. Unblocked by calling <code>SSHSetupReply</code>.</td>
+              </tr>
+              <tr>
+                <td class="td-event">setup:done</td>
+                <td class="td-type">SetupResult</td>
+                <td class="td-desc"><code>SSHSetupStart</code> goroutine</td>
+                <td class="td-desc">SshTab.vue</td>
+                <td class="td-desc">Setup completion. Object: <code>{ ok: boolean, message: string }</code>.</td>
+              </tr>
+              <tr>
+                <td class="td-event">p2p:status</td>
+                <td class="td-type">string</td>
+                <td class="td-desc">P2PSession (pion callbacks)</td>
+                <td class="td-desc">P2pTab.vue</td>
+                <td class="td-desc">ICE connection state. Values mirror pion WebRTC connection states: <code>checking</code>, <code>connected</code>, <code>disconnected</code>, <code>failed</code>, <code>closed</code>.</td>
+              </tr>
+              <tr>
+                <td class="td-event">p2p:log</td>
+                <td class="td-type">string</td>
+                <td class="td-desc">P2PSession</td>
+                <td class="td-desc">P2pTab.vue</td>
+                <td class="td-desc">Timestamped WebRTC diagnostic messages (<code>HH:MM:SS - message</code>).</td>
+              </tr>
+              <tr>
+                <td class="td-event">relay:log</td>
+                <td class="td-type">string</td>
+                <td class="td-desc">relay.Relay</td>
+                <td class="td-desc">P2pTab.vue</td>
+                <td class="td-desc">Timestamped embedded TURN relay activity messages (<code>HH:MM:SS - message</code>).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code-label" style="margin-top:24px">Registering and cleaning up event listeners in Vue</div>
+        <div class="code-block"><span class="kw">import</span> { <span class="fn">EventsOn</span>, <span class="fn">EventsOff</span> } <span class="kw">from</span> <span class="str">'../../wailsjs/runtime'</span>
+<span class="kw">import</span> { onMounted, onUnmounted } <span class="kw">from</span> <span class="str">'vue'</span>
+
+<span class="fn">onMounted</span>(() =&gt; {
+  <span class="fn">EventsOn</span>(<span class="str">'tunnel:status'</span>, (s: <span class="type">string</span>) =&gt; { tunnelStatus.value = s })
+  <span class="fn">EventsOn</span>(<span class="str">'tunnel:log'</span>,    (m: <span class="type">string</span>) =&gt; { logs.value.push(m) })
+})
+
+<span class="fn">onUnmounted</span>(() =&gt; {
+  <span class="fn">EventsOff</span>(<span class="str">'tunnel:status'</span>)
+  <span class="fn">EventsOff</span>(<span class="str">'tunnel:log'</span>)
+})</div>
+      </section>
+
+      <!-- ── 11. Error Conventions ─────────────────────────────────────────── -->
+      <section class="api-section" id="error-conventions">
+        <div class="s-label">Reference</div>
+        <h2 class="s-title">Error Conventions</h2>
+        <div class="s-body">Direct Connector uses a consistent <strong>string-error</strong> convention for methods that can fail. This avoids thrown Promise rejections while keeping the TypeScript interface simple.</div>
+
+        <div class="note-box" style="margin-bottom:24px">
+          <strong>Convention:</strong> Methods that can fail return a <code>Promise&lt;string&gt;</code>. An empty string <code>""</code> means success. A non-empty string is a human-readable error message to display to the user.
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Return type</th>
+              <th><code>""</code> means</th>
+              <th>Non-empty means</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-name">StartTunnel</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Tunnel started successfully</td>
+              <td class="td-desc">WSL path validation error (e.g. Windows path used with WSL SSH)</td>
+            </tr>
+            <tr>
+              <td class="td-name">GenerateAppKey</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Keypair written to disk</td>
+              <td class="td-desc">File system or crypto error</td>
+            </tr>
+            <tr>
+              <td class="td-name">SSHSetupStart</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Setup goroutine launched (async)</td>
+              <td class="td-desc">Already busy, or key generation failed</td>
+            </tr>
+            <tr>
+              <td class="td-name">SSHCheckKeyAuth</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Key auth accepted by server</td>
+              <td class="td-desc">Auth failure, connection error, or missing key</td>
+            </tr>
+            <tr>
+              <td class="td-name">P2PGenerateOffer</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">N/A — returns base64 SDP</td>
+              <td class="td-desc">Starts with <code>"ERROR: "</code> prefix; session already active or ICE failure</td>
+            </tr>
+            <tr>
+              <td class="td-name">P2PAcceptAnswer</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Answer applied; ICE proceeding</td>
+              <td class="td-desc">Starts with <code>"ERROR: "</code> prefix; no active session or invalid SDP</td>
+            </tr>
+            <tr>
+              <td class="td-name">P2PProvideAnswer</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">N/A — returns base64 SDP</td>
+              <td class="td-desc">Starts with <code>"ERROR: "</code> prefix; session already active or ICE failure</td>
+            </tr>
+            <tr>
+              <td class="td-name">P2PSetConfig</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">Config stored for next session</td>
+              <td class="td-desc">TURN URL does not start with <code>turn:</code> or <code>turns:</code></td>
+            </tr>
+            <tr>
+              <td class="td-name">RelayStart</td>
+              <td class="td-type">string</td>
+              <td class="td-desc">TURN relay is listening</td>
+              <td class="td-desc">Port binding failed or relay already running</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="code-label" style="margin-top:24px">Recommended error handling pattern in Vue</div>
+        <div class="code-block"><span class="kw">const</span> err = <span class="kw">await</span> <span class="fn">StartTunnel</span>(settings)
+<span class="kw">if</span> (err) {
+  <span class="cmt">// Non-empty string = error message — show to user</span>
+  errorMessage.value = err
+  <span class="kw">return</span>
+}
+<span class="cmt">// "" = success</span>
+tunnelStarted.value = <span class="num">true</span>
+
+<span class="cmt">// P2P methods use "ERROR: " prefix — check for both patterns:</span>
+<span class="kw">const</span> offer = <span class="kw">await</span> <span class="fn">P2PGenerateOffer</span>(<span class="str">"1883"</span>)
+<span class="kw">if</span> (offer.startsWith(<span class="str">'ERROR:'</span>)) {
+  errorMessage.value = offer.slice(<span class="num">7</span>).trim()
+  <span class="kw">return</span>
+}
+offerSDP.value = offer</div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <img src="./icon.png" alt="" />
+      <span>Direct Connector — unlicensed, use freely.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/el-j/directConnector/actions" target="_blank" rel="noopener">CI</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
