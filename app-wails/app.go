@@ -207,7 +207,20 @@ func (a *App) CopyToClipboard(text string) {
 // ── SSH Tunnel ────────────────────────────────────────────────────────────────
 
 // StartTunnel launches an SSH tunnel from the given settings.
-func (a *App) StartTunnel(s TunnelSettings) {
+func (a *App) StartTunnel(s TunnelSettings) string {
+	// On Windows with UseWSLSsh the SSH process runs inside WSL, so the key
+	// path must be a Linux/POSIX path.  Detect common Windows path patterns
+	// (drive letters, backslashes) and return a helpful error immediately
+	// rather than letting WSL fail with a cryptic message.
+	if s.UseWSLSsh && s.KeyPath != "" {
+		kp := s.KeyPath
+		if len(kp) >= 2 && kp[1] == ':' {
+			return fmt.Sprintf("WSL SSH requires a Linux path for the key (e.g. /home/user/.ssh/id_ed25519), got Windows path %q", kp)
+		}
+		if strings.Contains(kp, `\`) {
+			return fmt.Sprintf("WSL SSH requires a Linux path for the key (forward slashes), got %q", kp)
+		}
+	}
 	a.tm.Start(tunnel.Config{
 		Host:         s.Host,
 		Port:         s.Port,
@@ -219,6 +232,7 @@ func (a *App) StartTunnel(s TunnelSettings) {
 		Verbose:      s.Verbose,
 		UseWSLSsh:    s.UseWSLSsh,
 	})
+	return ""
 }
 
 // StopTunnel terminates the running SSH tunnel.
@@ -311,10 +325,18 @@ func (a *App) P2PIsActive() bool {
 
 // P2PSetConfig stores per-session ICE tuning parameters.  Call before
 // P2PGenerateOffer or P2PProvideAnswer.  Safe to call at any time.
-func (a *App) P2PSetConfig(cfg P2PSessionConfig) {
+// Returns "" on success, or an error string if any TURN server URL is invalid.
+func (a *App) P2PSetConfig(cfg P2PSessionConfig) string {
+	for _, t := range cfg.TURNServers {
+		u := strings.TrimSpace(t.URL)
+		if u != "" && !strings.HasPrefix(u, "turn:") && !strings.HasPrefix(u, "turns:") {
+			return fmt.Sprintf("invalid TURN URL %q: must start with turn: or turns:", u)
+		}
+	}
 	a.mu.Lock()
 	a.p2pConfig = cfg
 	a.mu.Unlock()
+	return ""
 }
 
 // RelayStart starts the embedded TURN relay on the given UDP port.

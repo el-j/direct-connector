@@ -17,6 +17,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        if (!source) source = {};
 	        this.host = source["host"];
 	        this.port = source["port"];
 	        this.forwardPorts = source["forwardPorts"];
@@ -39,6 +40,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        if (!source) source = {};
 	        this.url = source["url"];
 	        this.username = source["username"];
 	        this.credential = source["credential"];
@@ -55,6 +57,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        if (!source) source = {};
 	        this.turnServers = this.convertValues(source["turnServers"], P2PTURNServer);
 	        this.tcpMuxPort = source["tcpMuxPort"];
 	        this.gatherTimeoutSecs = source["gatherTimeoutSecs"];
@@ -92,6 +95,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        if (!source) source = {};
 	        this.turnAddr    = source["turnAddr"];
 	        this.turnTcpAddr = source["turnTcpAddr"] ?? '';
 	        this.username    = source["username"];
@@ -116,6 +120,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        if (!source) source = {};
 	        this.host = source["host"];
 	        this.port = source["port"];
 	        this.forwardPorts = source["forwardPorts"];

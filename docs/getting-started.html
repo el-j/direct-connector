@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started — Direct Connector</title>
+  <meta name="description" content="Step-by-step guide to install Direct Connector, set up your first SSH reverse tunnel, and establish a serverless P2P connection in minutes." />
+  <meta property="og:title" content="Getting Started — Direct Connector" />
+  <meta property="og:description" content="Install, configure, and connect in minutes with Direct Connector's SSH or P2P tunnel modes." />
+  <meta property="og:image" content="https://el-j.github.io/directConnector/icon.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/png" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #080c14;
+      --bg-1: #0d1524;
+      --bg-2: #121d30;
+      --bg-card: rgba(255,255,255,.04);
+      --bg-card-hover: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.08);
+      --border-accent: rgba(56,189,248,.25);
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a3b8;
+      --text-muted: #4e6380;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-teal: #2dd4bf;
+      --accent-glow: rgba(56,189,248,.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-card: 0 4px 32px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.05) inset;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh gradient ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(99,102,241,.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(45,212,191,.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section { padding: 96px 0; }
+    section + section { padding-top: 0; }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(8,12,20,.75);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: .85rem;
+      color: var(--text-secondary) !important;
+      transition: border-color var(--transition), color var(--transition) !important;
+    }
+    .nav-gh:hover { border-color: var(--accent-cyan) !important; color: var(--text-primary) !important; }
+    .nav-gh svg { flex-shrink: 0; }
+
+    /* ── Separator ────────────────────────────────────────────────────────── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ── Section label / title / body ─────────────────────────────────────── */
+    .s-label {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+    }
+    .s-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -.025em;
+      line-height: 1.15;
+      margin-bottom: 14px;
+    }
+    .s-body {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.75;
+      max-width: 680px;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────────────── */
+    .hero {
+      padding: 96px 0 72px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(56,189,248,.1);
+      border: 1px solid rgba(56,189,248,.25);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+    .hero-badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-cyan); display: inline-block; animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .5; transform: scale(.8); }
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #f0f6ff 0%, #94c4f5 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.15rem);
+      color: var(--text-secondary);
+      max-width: 620px;
+      margin: 0 auto 40px;
+      line-height: 1.75;
+    }
+    .hero-toc {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .toc-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: .8rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-decoration: none;
+      transition: border-color var(--transition), color var(--transition);
+    }
+    .toc-pill:hover { border-color: var(--border-accent); color: var(--accent-cyan); }
+
+    /* ── Content prose ────────────────────────────────────────────────────── */
+    .content-section {
+      padding: 80px 0;
+    }
+    .content-section + .content-section { padding-top: 0; }
+
+    .content-wrap {
+      max-width: 820px;
+    }
+
+    .prose p {
+      color: var(--text-secondary);
+      font-size: .975rem;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+    .prose p:last-child { margin-bottom: 0; }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 32px;
+    }
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px 22px;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .info-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+    .info-card .card-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .info-card h4 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+    .info-card p  { font-size: .85rem; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── Steps ────────────────────────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 28px; margin-top: 36px; }
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+      color: #080c14;
+      font-size: .8rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-body h4 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .step-body p  { font-size: .875rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 10px; }
+    .step-body p:last-child { margin-bottom: 0; }
+
+    /* ── Code blocks / terminal ───────────────────────────────────────────── */
+    pre, .code-block {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      line-height: 1.8;
+      color: #94a3b8;
+      overflow-x: auto;
+      margin-top: 12px;
+      white-space: pre;
+    }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82em;
+      background: rgba(56,189,248,.08);
+      border: 1px solid rgba(56,189,248,.15);
+      border-radius: 5px;
+      padding: 1px 6px;
+      color: var(--accent-cyan);
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+      color: inherit;
+    }
+    .t-prompt { color: #2dd4bf; }
+    .t-cmd    { color: #f0f6ff; }
+    .t-flag   { color: #38bdf8; }
+    .t-val    { color: #a5f3fc; }
+    .t-comment{ color: #334155; }
+    .t-out    { color: #4ade80; }
+    .t-line   { display: block; }
+
+    .terminal {
+      background: #030811;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+    }
+    .terminal-bar {
+      background: #0d1524;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .terminal-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .t-red    { background: #ff5f57; }
+    .t-yellow { background: #febc2e; }
+    .t-green  { background: #28c840; }
+    .terminal-title { font-size: .72rem; color: var(--text-muted); margin-left: 8px; }
+    .terminal-body { padding: 18px 20px; line-height: 1.8; }
+
+    /* ── Callout / note boxes ─────────────────────────────────────────────── */
+    .callout {
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-top: 16px;
+      font-size: .875rem;
+      line-height: 1.7;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .callout-body { flex: 1; }
+    .callout-body strong { display: block; margin-bottom: 4px; }
+    .callout-body p { margin: 0; color: inherit; font-size: .875rem; line-height: 1.65; }
+    .callout.info {
+      background: rgba(56,189,248,.07);
+      border: 1px solid rgba(56,189,248,.2);
+      color: #bae6fd;
+    }
+    .callout.warn {
+      background: rgba(251,191,36,.07);
+      border: 1px solid rgba(251,191,36,.2);
+      color: #fde68a;
+    }
+    .callout.tip {
+      background: rgba(45,212,191,.07);
+      border: 1px solid rgba(45,212,191,.2);
+      color: #99f6e4;
+    }
+
+    /* ── Two-column side-by-side ──────────────────────────────────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 32px;
+    }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; gap: 24px; } }
+    .col-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-card);
+    }
+    .col-card .col-label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--accent-teal);
+      margin-bottom: 10px;
+    }
+    .col-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+
+    /* ── Alt background sections ──────────────────────────────────────────── */
+    .alt-section {
+      background: var(--bg-1);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Troubleshooting table ────────────────────────────────────────────── */
+    .trouble-list { display: flex; flex-direction: column; gap: 14px; margin-top: 28px; }
+    .trouble-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      transition: border-color var(--transition);
+    }
+    .trouble-item:hover { border-color: var(--border-accent); }
+    .trouble-err {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      color: #f87171;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .trouble-fix { font-size: .875rem; color: var(--text-secondary); line-height: 1.65; }
+    .trouble-fix code { font-size: .78rem; }
+
+    /* ── Next steps cards ─────────────────────────────────────────────────── */
+    .next-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .next-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 26px 22px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color var(--transition), transform var(--transition), background var(--transition);
+      display: block;
+    }
+    .next-card:hover { border-color: var(--border-accent); background: var(--bg-card-hover); transform: translateY(-3px); }
+    .next-card .next-icon { font-size: 1.6rem; margin-bottom: 12px; }
+    .next-card h4 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+    .next-card p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.6; }
+    .next-card .next-arrow { font-size: .8rem; color: var(--accent-cyan); margin-top: 12px; display: block; }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+    }
+    .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ── Utility ──────────────────────────────────────────────────────────── */
+    .text-center { text-align: center; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mt-32 { margin-top: 32px; }
+    .mb-0  { margin-bottom: 0; }
+
+    /* ── Responsive tweaks ────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      section, .content-section { padding: 56px 0; }
+      .hero { padding: 64px 0 48px; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="./index.html">
+      <img src="./icon.png" alt="Direct Connector icon" />
+      Direct Connector
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">← Back to Home</a></li>
+      <li><a href="./architecture.html">Architecture</a></li>
+      <li><a href="./api.html">API Reference</a></li>
+      <li><a href="./contributing.html">Contributing</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.5-.3-5.1-1.3-5.1-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.2 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.7 21.4 24 17.1 24 12c0-6.3-5.2-11.5-12-11.5z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-badge">
+      <span></span>
+      Getting Started
+    </div>
+
+    <h1>Get started in minutes.</h1>
+
+    <p class="hero-sub">
+      Direct Connector gives you encrypted reverse SSH tunnels and serverless WebRTC
+      peer-to-peer connections — no cloud subscription, no relay, no third party. This guide
+      walks you from download to your first live tunnel in under five minutes.
+    </p>
+
+    <div class="hero-toc">
+      <a class="toc-pill" href="#prerequisites">Prerequisites</a>
+      <a class="toc-pill" href="#install">Download &amp; Install</a>
+      <a class="toc-pill" href="#first-launch">First Launch</a>
+      <a class="toc-pill" href="#ssh-quickstart">SSH Tunnel</a>
+      <a class="toc-pill" href="#p2p-quickstart">P2P Tunnel</a>
+      <a class="toc-pill" href="#cli-docker">CLI &amp; Docker</a>
+      <a class="toc-pill" href="#next-steps">Next Steps</a>
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── Prerequisites ─────────────────────────────────────────────────────── -->
+<section class="content-section" id="prerequisites">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Before you begin</div>
+      <h2 class="s-title">Prerequisites</h2>
+      <p class="s-body">
+        Direct Connector is lightweight and has almost no external dependencies. What you need
+        depends on which tunnel mode you plan to use.
+      </p>
+
+      <div class="cards-grid mt-32">
+        <div class="info-card">
+          <div class="card-icon">🖥️</div>
+          <h4>Supported platforms</h4>
+          <p>
+            <strong>macOS arm64</strong> (Apple Silicon, macOS 12+) or
+            <strong>Windows 10 / 11 x64</strong> for the GUI desktop app.
+            Linux users can run the headless CLI binary or Docker image on any amd64 system.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">🔐</div>
+          <h4>For SSH Tunnel mode</h4>
+          <p>
+            An SSH jump server you control — a VPS, cloud instance, or any machine reachable from the
+            internet on port 443 (or your chosen port). You need a login with permission to edit
+            <code>~/.ssh/authorized_keys</code>.
+          </p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">🌐</div>
+          <h4>For P2P mode</h4>
+          <p>
+            Any two machines with internet access. No server, no account, no firewall rules
+            needed. For symmetric NAT or CGNAT networks an optional TURN relay URL can be
+            supplied, but the vast majority of connections succeed without one.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── Download & Install ────────────────────────────────────────────────── -->
+<section class="content-section alt-section" id="install">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Step 0</div>
+      <h2 class="s-title">Download &amp; Install</h2>
+      <p class="s-body">
+        The desktop app is a single self-contained binary — no installer, no
+        runtime, no system libraries. Pick the build for your platform below.
+      </p>
+
+      <div class="steps mt-32">
+
+        <div class="step">
+          <div class="step-num">①</div>
+          <div class="step-body">
+            <h4>macOS (Apple Silicon)</h4>
+            <p>
+              Download <strong>direct-connector-mac.zip</strong> from the
+              <a href="https://github.com/el-j/directConnector/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-cyan)">latest release</a>.
+              Unzip it (double-click or <code>unzip direct-connector-mac.zip</code>), then drag
+              <code>Direct Connector.app</code> into your <strong>Applications</strong> folder, or
+              simply double-click to run it from Downloads.
+            </p>
+            <div class="callout warn">
+              <div class="callout-icon">⚠️</div>
+              <div class="callout-body">
+                <strong>macOS Gatekeeper</strong>
+                <p>Because the app is not yet notarized by Apple, macOS will block it on first launch.
+                To bypass this: <strong>right-click</strong> (or Control-click) the app icon → choose
+                <strong>Open</strong> → click <strong>Open</strong> in the dialog. You only need to do
+                this once.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">②</div>
+          <div class="step-body">
+            <h4>Windows (x64)</h4>
+            <p>
+              Download <strong>direct-connector-windows.exe</strong> from the
+              <a href="https://github.com/el-j/directConnector/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-cyan)">latest release</a>.
+              No installer is needed — just run the <code>.exe</code> directly. Windows may show a
+              SmartScreen warning on first launch because the binary is unsigned; click
+              <strong>More info → Run anyway</strong> to proceed.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">③</div>
+          <div class="step-body">
+            <h4>Linux (headless CLI or Docker)</h4>
+            <p>
+              The Linux build is a headless CLI binary — no GUI, no OpenGL dependency. Download
+              <strong>direct-connector-linux-amd64</strong>, mark it executable, and run it from
+              a terminal. Alternatively, pull the Docker image for zero-install deployment.
+              See the <a href="#cli-docker" style="color:var(--accent-cyan)">CLI &amp; Docker section</a> below for
+              full details.
+            </p>
+            <pre><code><span class="t-prompt">$</span> <span class="t-cmd">chmod</span> <span class="t-flag">+x</span> <span class="t-val">direct-connector-linux-amd64</span>
+<span class="t-prompt">$</span> <span class="t-cmd">./direct-connector-linux-amd64</span> <span class="t-flag">--help</span></code></pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── First Launch ───────────────────────────────────────────────────────── -->
+<section class="content-section" id="first-launch">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Orientation</div>
+      <h2 class="s-title">First Launch</h2>
+      <div class="prose">
+        <p>
+          When you open Direct Connector for the first time, the app loads directly into the
+          <strong>SSH Tunnel</strong> tab. The window is split into two tabs along the top, one for
+          each tunnel mode, and a real-time log panel runs along the bottom of each tab to
+          display connection events.
+        </p>
+        <p>
+          On <strong>macOS</strong> and <strong>Windows</strong> a system tray / menu-bar icon
+          appears immediately. You can minimize the window and the tunnel stays active in the
+          background — use the tray icon to bring it back or quit the app entirely.
+        </p>
+        <p>
+          Your configuration is stored in a JSON file at the OS-standard user config directory
+          (<code>~/Library/Application Support/MQTTTunnelManager/</code> on macOS,
+          <code>%AppData%\MQTTTunnelManager\</code> on Windows). The app writes a new config
+          snapshot every time you successfully start a tunnel, so your settings are never lost
+          across restarts.
+        </p>
+        <p>
+          The Ed25519 key pair used for passwordless SSH is generated once and stored alongside
+          the config file. The public key is what gets installed on your server; the private key
+          never leaves your machine.
+        </p>
+      </div>
+
+      <div class="callout info mt-16">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Two tabs, one app</strong>
+          <p><strong>SSH Tunnel</strong> creates a persistent reverse tunnel through a jump server
+          you control. <strong>P2P Tunnel</strong> establishes a direct, serverless connection
+          between two machines using WebRTC. Both tabs stay mounted while the app is running so
+          you can switch modes instantly without losing state.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── SSH Quickstart ─────────────────────────────────────────────────────── -->
+<section class="content-section alt-section" id="ssh-quickstart">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Tunnel mode 1</div>
+      <h2 class="s-title">SSH Tunnel Quickstart</h2>
+      <p class="s-body">
+        An SSH reverse tunnel punches an encrypted connection from your local machine out
+        to a jump server, then forwards one or more ports back. Port 443 is the default
+        because it passes through virtually every corporate firewall and proxy.
+      </p>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Enter your server details</h4>
+            <p>
+              In the <strong>SSH Tunnel</strong> tab, fill in:
+            </p>
+            <p>
+              <strong>Host</strong> — the hostname or IP of your jump server (e.g. <code>jump.example.com</code>)<br />
+              <strong>Port</strong> — leave at <code>443</code> unless your SSH daemon listens elsewhere<br />
+              <strong>Username</strong> — the Linux user on the jump server (e.g. <code>admin</code> or <code>ubuntu</code>)<br />
+              <strong>Remote ports</strong> — comma-separated list of ports to forward (e.g. <code>1883,3391</code>)
+            </p>
+            <div class="callout tip">
+              <div class="callout-icon">💡</div>
+              <div class="callout-body">
+                <p>Using port 443 for SSH requires adding <code>Port 443</code> (or a second <code>ListenAddress</code>
+                line) to <code>/etc/ssh/sshd_config</code> on the server, then restarting sshd. If your server already
+                runs HTTPS on 443 you can use <a href="https://github.com/yrutschle/sslh" target="_blank" rel="noopener" style="color:var(--accent-teal)">sslh</a>
+                to multiplex both on the same port.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Generate (or import) your app key</h4>
+            <p>
+              Click <strong>Generate Key</strong> to create a fresh Ed25519 key pair stored in the
+              app's config directory. If you already have an existing private key you prefer, click
+              <strong>Use existing key</strong> and browse to the file — the app copies it into
+              its config directory so the original is never touched.
+            </p>
+            <p>
+              The public key is shown as a one-line string in the text box. You can copy it manually
+              and append it to <code>~/.ssh/authorized_keys</code> on the server, or let the app do
+              it automatically in the next step.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Install key on server — one-time password entry</h4>
+            <p>
+              Click <strong>Install Key on Server</strong>. The app dials the server over SSH,
+              shows the server's host fingerprint for verification, then prompts for your
+              password. After you confirm, it appends the public key to
+              <code>~/.ssh/authorized_keys</code> on the server.
+            </p>
+            <p>
+              You only enter your password <em>once</em>. Every subsequent connection uses the
+              key pair — no password is ever stored by the app.
+            </p>
+            <div class="callout info">
+              <div class="callout-icon">🔑</div>
+              <div class="callout-body">
+                <strong>Auth check</strong>
+                <p>After installation, click <strong>Check Key Auth</strong> to verify that the server
+                accepts your key before attempting the tunnel. A green tick means you're ready.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Start the tunnel</h4>
+            <p>
+              Click <strong>Start Tunnel</strong>. The log panel at the bottom of the tab will fill
+              with output from the SSH process. A successful connection looks like:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+                <span class="terminal-title">tunnel log</span>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># app log output</span></span>
+                <span class="t-line"><span class="t-out">2024/01/15 12:34:01 tunnel: starting ssh -N -R 1883:localhost:1883 admin@jump.example.com -p 443</span></span>
+                <span class="t-line"><span class="t-out">2024/01/15 12:34:02 tunnel: connected</span></span>
+                <span class="t-line"><span class="t-out">2024/01/15 12:34:02 tunnel: forwarding ports [1883]</span></span>
+              </div>
+            </div>
+            <p class="mt-16">
+              The tunnel auto-reconnects within five seconds if the connection drops — from
+              network changes, sleep, or a server restart. The status indicator in the tab header
+              turns green when the tunnel is live.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Verify end-to-end connectivity</h4>
+            <p>
+              From any machine that can reach your jump server, test that the forwarded port is
+              reachable. For an MQTT broker on port 1883:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+                <span class="terminal-title">remote machine</span>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># subscribe on the remote machine via the tunnel</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">mosquitto_sub</span> <span class="t-flag">-h</span> <span class="t-val">jump.example.com</span> <span class="t-flag">-p</span> <span class="t-val">1883</span> <span class="t-flag">-t</span> <span class="t-val">test/#</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-comment"># or verify the port is open with netcat</span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">nc</span> <span class="t-flag">-zv</span> <span class="t-val">jump.example.com</span> <span class="t-val">1883</span></span>
+                <span class="t-line"><span class="t-out">Connection to jump.example.com 1883 port [tcp/*] succeeded!</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Troubleshooting -->
+      <div class="mt-32">
+        <div class="s-label">Troubleshooting</div>
+        <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:8px;">Common errors &amp; fixes</h3>
+        <div class="trouble-list">
+          <div class="trouble-item">
+            <span class="trouble-err">Permission denied (publickey)</span>
+            <p class="trouble-fix">The public key was not installed or the server's <code>AuthorizedKeysFile</code>
+            path differs from the default. Re-run <strong>Install Key on Server</strong>, or
+            manually append the public key to <code>~/.ssh/authorized_keys</code> with correct
+            <code>chmod 600 ~/.ssh/authorized_keys</code> permissions.</p>
+          </div>
+          <div class="trouble-item">
+            <span class="trouble-err">ssh: connect to host … port 443: Connection refused</span>
+            <p class="trouble-fix">The server's sshd is not listening on port 443. Add <code>Port 443</code>
+            to <code>/etc/ssh/sshd_config</code> and restart sshd with <code>sudo systemctl restart sshd</code>.
+            Ensure port 443 is open in the server's firewall / security group.</p>
+          </div>
+          <div class="trouble-item">
+            <span class="trouble-err">Warning: remote port forwarding failed for listen port …</span>
+            <p class="trouble-fix">Another process is already listening on that port on the server, or
+            <code>GatewayPorts yes</code> is not set in <code>sshd_config</code>. Add
+            <code>GatewayPorts yes</code> and restart sshd, or choose a different remote port.</p>
+          </div>
+          <div class="trouble-item">
+            <span class="trouble-err">Host key verification failed</span>
+            <p class="trouble-fix">The server's fingerprint changed (possibly a reinstall). Remove the
+            old entry from <code>~/.ssh/known_hosts</code> with
+            <code>ssh-keygen -R [host]:443</code>, then reconnect and confirm the new fingerprint.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── P2P Quickstart ─────────────────────────────────────────────────────── -->
+<section class="content-section" id="p2p-quickstart">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Tunnel mode 2</div>
+      <h2 class="s-title">P2P Tunnel Quickstart</h2>
+      <p class="s-body">
+        The P2P mode uses WebRTC DataChannels to punch a direct, encrypted tunnel between
+        two machines — the same technology behind browser video calls. The only exchange
+        needed is a short base64 text blob copied between machines; no server relays
+        your data.
+      </p>
+
+      <div class="callout info mt-16">
+        <div class="callout-icon">ℹ️</div>
+        <div class="callout-body">
+          <strong>Roles: Consumer &amp; Provider</strong>
+          <p><strong>Consumer</strong> is the machine that wants to <em>use</em> a service (e.g. subscribe
+          to MQTT). <strong>Provider</strong> is the machine that <em>hosts</em> the service (e.g. runs
+          the broker). Either machine can be behind NAT — both just need outbound internet access.</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="col-card">
+          <div class="col-label">Consumer (machine A)</div>
+          <h4>Generate the Offer</h4>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">1</div>
+              <div class="step-body">
+                <p>Open the <strong>P2P Tunnel</strong> tab. Enter the local port(s) you want forwarded — e.g. <code>1883</code> for MQTT.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">2</div>
+              <div class="step-body">
+                <p>Click <strong>Generate Offer</strong>. The app performs ICE candidate gathering and produces a base64 blob in the text area. This takes a few seconds.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">3</div>
+              <div class="step-body">
+                <p>Copy the entire base64 blob and send it to the Provider (e.g. via chat, email, or any channel).</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">4</div>
+              <div class="step-body">
+                <p>Wait for the Provider to send back an <em>answer</em> blob, paste it into the answer text area, then click <strong>Connect</strong>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-card">
+          <div class="col-label">Provider (machine B)</div>
+          <h4>Accept &amp; Generate Answer</h4>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">1</div>
+              <div class="step-body">
+                <p>Open the <strong>P2P Tunnel</strong> tab on the Provider machine and switch to the <strong>Provider</strong> sub-mode.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">2</div>
+              <div class="step-body">
+                <p>Paste the Consumer's offer blob into the offer text area.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">3</div>
+              <div class="step-body">
+                <p>Click <strong>Accept &amp; Generate Answer</strong>. The app produces its own base64 answer blob.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="width:26px;height:26px;font-size:.7rem;">4</div>
+              <div class="step-body">
+                <p>Copy the answer blob and send it back to the Consumer. Once the Consumer pastes it and clicks <strong>Connect</strong>, the tunnel goes live on both sides.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout tip mt-32">
+        <div class="callout-icon">🔄</div>
+        <div class="callout-body">
+          <strong>Symmetric NAT / CGNAT</strong>
+          <p>If ICE negotiation fails (both machines are behind carrier-grade NAT or symmetric NAT),
+          provide a TURN relay URL in the advanced settings of the P2P tab. The TURN server only
+          relays the connection — it does not see your tunnel's payload, which remains DTLS 1.2
+          encrypted end-to-end. Free TURN servers such as
+          <a href="https://www.metered.ca/tools/openrelay/" target="_blank" rel="noopener" style="color:var(--accent-teal)">Open Relay</a>
+          work fine for low-bandwidth tunnels.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── CLI / Docker ───────────────────────────────────────────────────────── -->
+<section class="content-section alt-section" id="cli-docker">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Headless &amp; server deployments</div>
+      <h2 class="s-title">CLI &amp; Docker Quickstart</h2>
+      <p class="s-body">
+        For server automation, CI pipelines, or embedded Linux systems, Direct Connector
+        ships a headless CLI binary compiled with no GUI dependency. Every flag has an
+        equivalent <code>DC_*</code> environment variable, making pure-env Docker
+        configuration straightforward.
+      </p>
+
+      <div class="steps mt-32">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Download the CLI binary</h4>
+            <p>
+              Grab <strong>direct-connector-linux-amd64</strong> from the
+              <a href="https://github.com/el-j/directConnector/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-cyan)">latest release</a>,
+              or pull the Docker image:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># native binary</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">curl</span> <span class="t-flag">-LO</span> <span class="t-val">https://github.com/el-j/directConnector/releases/latest/download/direct-connector-linux-amd64</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">chmod</span> <span class="t-flag">+x</span> <span class="t-val">direct-connector-linux-amd64</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-line"><span class="t-comment"># or pull the Docker image</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">docker</span> <span class="t-val">pull ghcr.io/el-j/direct-connector:latest</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>SSH tunnel mode</h4>
+            <p>
+              All flags map 1-to-1 to <code>DC_</code>-prefixed environment variables. Supply
+              a pre-installed private key via <code>--key</code> or mount it as a Docker secret:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># native CLI — SSH tunnel</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">./direct-connector-linux-amd64</span> \</span>
+                <span class="t-line">    <span class="t-flag">--mode</span>  <span class="t-val">ssh</span> \</span>
+                <span class="t-line">    <span class="t-flag">--host</span>  <span class="t-val">jump.example.com</span> \</span>
+                <span class="t-line">    <span class="t-flag">--port</span>  <span class="t-val">443</span> \</span>
+                <span class="t-line">    <span class="t-flag">--user</span>  <span class="t-val">admin</span> \</span>
+                <span class="t-line">    <span class="t-flag">--ports</span> <span class="t-val">1883,3391</span> \</span>
+                <span class="t-line">    <span class="t-flag">--key</span>   <span class="t-val">/config/id_ed25519</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-line"><span class="t-out">✓ tunnel connected — forwarding 1883,3391</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>P2P mode (file-based SDP exchange)</h4>
+            <p>
+              In automated or headless environments, the CLI reads the offer blob from a file and
+              writes the answer blob to a file, making it composable with scripts:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># Consumer: generate offer to file</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">./direct-connector-linux-amd64</span> \</span>
+                <span class="t-line">    <span class="t-flag">--mode</span>       <span class="t-val">p2p-consumer</span> \</span>
+                <span class="t-line">    <span class="t-flag">--offer-out</span>  <span class="t-val">/data/offer.txt</span> \</span>
+                <span class="t-line">    <span class="t-flag">--answer-in</span>  <span class="t-val">/data/answer.txt</span> \</span>
+                <span class="t-line">    <span class="t-flag">--ports</span>      <span class="t-val">1883</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-line"><span class="t-comment"># Provider: read offer, write answer</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">./direct-connector-linux-amd64</span> \</span>
+                <span class="t-line">    <span class="t-flag">--mode</span>       <span class="t-val">p2p-provider</span> \</span>
+                <span class="t-line">    <span class="t-flag">--offer-in</span>   <span class="t-val">/data/offer.txt</span> \</span>
+                <span class="t-line">    <span class="t-flag">--answer-out</span> <span class="t-val">/data/answer.txt</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Docker Compose one-liner</h4>
+            <p>
+              The Docker image accepts all configuration via environment variables, making it
+              ideal for <code>docker-compose.yml</code> or Kubernetes manifests. Mount a named
+              volume for the SSH key so it persists across container restarts:
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <div class="terminal-dot t-red"></div>
+                <div class="terminal-dot t-yellow"></div>
+                <div class="terminal-dot t-green"></div>
+              </div>
+              <div class="terminal-body">
+                <span class="t-line"><span class="t-comment"># docker-compose.yml snippet</span></span>
+                <span class="t-line"><span class="t-cmd">services:</span></span>
+                <span class="t-line">  <span class="t-flag">tunnel:</span></span>
+                <span class="t-line">    <span class="t-val">image: ghcr.io/el-j/direct-connector:latest</span></span>
+                <span class="t-line">    <span class="t-flag">environment:</span></span>
+                <span class="t-line">      <span class="t-val">DC_MODE: ssh</span></span>
+                <span class="t-line">      <span class="t-val">DC_HOST: jump.example.com</span></span>
+                <span class="t-line">      <span class="t-val">DC_PORT: "443"</span></span>
+                <span class="t-line">      <span class="t-val">DC_USER: admin</span></span>
+                <span class="t-line">      <span class="t-val">DC_PORTS: "1883,3391"</span></span>
+                <span class="t-line">    <span class="t-flag">volumes:</span></span>
+                <span class="t-line">      <span class="t-val">- dc-config:/config</span></span>
+                <span class="t-line">    <span class="t-flag">restart:</span> <span class="t-val">unless-stopped</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-line"><span class="t-cmd">volumes:</span></span>
+                <span class="t-line">  <span class="t-flag">dc-config:</span></span>
+                <span class="t-line">&nbsp;</span>
+                <span class="t-line"><span class="t-comment"># bring it up</span></span>
+                <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">docker compose up</span> <span class="t-flag">-d</span></span>
+                <span class="t-line"><span class="t-out">✓ tunnel connected — forwarding 1883,3391</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sep"></div>
+
+<!-- ── Next Steps ────────────────────────────────────────────────────────── -->
+<section class="content-section" id="next-steps">
+  <div class="container">
+    <div class="content-wrap">
+      <div class="s-label">Keep exploring</div>
+      <h2 class="s-title">Next Steps</h2>
+      <p class="s-body">
+        You have a working tunnel — here are the best places to go deeper.
+      </p>
+
+      <div class="next-grid">
+        <a class="next-card" href="./architecture.html">
+          <div class="next-icon">🏗️</div>
+          <h4>Architecture</h4>
+          <p>
+            How the Wails + Vue frontend binds to the Go backend, the tunnel lifecycle,
+            and the dual-module repo structure.
+          </p>
+          <span class="next-arrow">Read architecture →</span>
+        </a>
+        <a class="next-card" href="./api.html">
+          <div class="next-icon">📖</div>
+          <h4>API Reference</h4>
+          <p>
+            Full documentation of every exported Go method on the <code>App</code> struct,
+            Wails events, CLI flags, and environment variables.
+          </p>
+          <span class="next-arrow">Browse API →</span>
+        </a>
+        <a class="next-card" href="./contributing.html">
+          <div class="next-icon">🤝</div>
+          <h4>Contributing</h4>
+          <p>
+            Build from source, run the test suite, and submit a pull request.
+            Includes style guide and commit conventions.
+          </p>
+          <span class="next-arrow">Contribute →</span>
+        </a>
+        <a class="next-card" href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">
+          <div class="next-icon">🐛</div>
+          <h4>Report an Issue</h4>
+          <p>
+            Found a bug or have a feature request? Open an issue on GitHub — the tracker
+            is the best place for detailed discussion.
+          </p>
+          <span class="next-arrow">Open issue →</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <img src="./icon.png" alt="" />
+      <span>Direct Connector — unlicensed, use freely.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="./index.html">Home</a></li>
+      <li><a href="./getting-started.html">Docs</a></li>
+      <li><a href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/el-j/directConnector/actions" target="_blank" rel="noopener">CI</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -27,3 +27,6 @@ VOLUME /config
 ENV XDG_CONFIG_HOME=/config
 
 ENTRYPOINT ["/direct-connector"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/direct-connector", "--help"]

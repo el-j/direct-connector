@@ -16,6 +16,7 @@ const configFileName = "tunnel_config.json"
 
 // Config holds all user-facing settings and is persisted to disk as JSON.
 type Config struct {
+	Version      int    `json:"version"`      // schema version; used for future migrations
 	Host         string `json:"host"`
 	Port         string `json:"port"`
 	ForwardPorts string `json:"forward_ports"`
@@ -31,6 +32,7 @@ type Config struct {
 // defaultConfig returns safe, sensible defaults.
 func defaultConfig() Config {
 	return Config{
+		Version:      1,
 		Host:         "joevbase.ddns.net",
 		Port:         "443",  // 443 bypasses most firewalls (indistinguishable from HTTPS to routers)
 		ForwardPorts: "1883, 3391",

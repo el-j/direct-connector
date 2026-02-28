@@ -8,6 +8,7 @@ import {
   StartTunnel, StopTunnel, IsTunnelRunning,
   SSHSetupStart, SSHSetupReply, SSHSetupCancel,
 } from '../../wailsjs/go/main/App'
+import { validatePort, validatePorts } from '../utils/portValidation'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type SetupPrompt = { kind: 'fingerprint' | 'password'; message: string; fingerprint: string }
@@ -145,6 +146,8 @@ async function startSetup(): Promise<void> {
   if (!form.host.trim()) errs.push('Host / DNS is required')
   if (!form.user.trim()) errs.push('Username is required')
   if (!form.port.trim()) errs.push('SSH Port is required')
+  const portErr = validatePort(form.port, 'SSH Port')
+  if (portErr) errs.push(portErr)
   if (errs.length) { appendLog('⚠  ' + errs.join(' | ')); return }
 
   setupBusy.value    = true
@@ -191,6 +194,13 @@ async function toggleTunnel() {
   if (!form.port.trim())         errs.push('SSH Port is required')
   if (!form.user.trim())         errs.push('SSH Username is required')
   if (!form.forwardPorts.trim()) errs.push('At least one Forward Port is required')
+
+  const portErr = validatePort(form.port, 'SSH Port')
+  if (portErr) errs.push(portErr)
+
+  const fwdErr = validatePorts(form.forwardPorts, 'Forward port')
+  if (fwdErr) errs.push(fwdErr)
+
   if (errs.length) { appendLog('⚠  ' + errs.join(' | ')); return }
 
   // Key priority: custom path → app key → SSH default
@@ -204,12 +214,13 @@ async function toggleTunnel() {
     useWslSsh: form.useWSLSsh, keyPath: form.keyPath,
   })
 
-  await StartTunnel({
+  const tunnelErr = await StartTunnel({
     host: form.host, port: form.port, user: form.user,
     forwardPorts: form.forwardPorts, ipVersion: form.ipVersion,
     forwardMode: form.forwardMode, verbose: form.verbose,
     useWslSsh: form.useWSLSsh, keyPath,
   })
+  if (tunnelErr) { appendLog('⚠  ' + tunnelErr); return }
   running.value = true
 }
 </script>

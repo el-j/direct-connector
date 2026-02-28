@@ -8,6 +8,7 @@ import {
   CopyToClipboard, GetPublicIP,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
+import { validatePort, validatePorts } from '../utils/portValidation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Role = 'consumer' | 'provider'
@@ -80,16 +81,23 @@ function appendLog(msg: string) {
 
 function resetSDP() { outboundSDP.value = ''; inboundSDP.value = '' }
 
+let relayRefreshing = false
 async function refreshRelayState() {
-  relayRunning.value = await RelayIsRunning()
-  if (relayRunning.value) {
-    const creds = await RelayGetCredentials()
-    relayAddr.value    = creds.turnAddr
-    relayTcpAddr.value = creds.turnTcpAddr ?? ''
-    relayUser.value    = creds.username
-    relayPass.value    = creds.password
-  } else {
-    relayAddr.value = relayTcpAddr.value = relayUser.value = relayPass.value = ''
+  if (relayRefreshing) return
+  relayRefreshing = true
+  try {
+    relayRunning.value = await RelayIsRunning()
+    if (relayRunning.value) {
+      const creds = await RelayGetCredentials()
+      relayAddr.value    = creds.turnAddr
+      relayTcpAddr.value = creds.turnTcpAddr ?? ''
+      relayUser.value    = creds.username
+      relayPass.value    = creds.password
+    } else {
+      relayAddr.value = relayTcpAddr.value = relayUser.value = relayPass.value = ''
+    }
+  } finally {
+    relayRefreshing = false
   }
 }
 
@@ -112,6 +120,8 @@ onUnmounted(() => {
 
 // ── Relay actions ──────────────────────────────────────────────────────────────
 async function startRelay() {
+  const relayPortErr = validatePort(String(relayPort.value), 'Relay port')
+  if (relayPortErr) { appendLog('⚠  ' + relayPortErr); return }
   relayBusy.value = true
   const err = await RelayStart(relayPort.value)
   relayBusy.value = false
@@ -130,7 +140,10 @@ async function stopRelay() {
 // ── Consumer actions ───────────────────────────────────────────────────────────
 async function genOffer() {
   if (!ports.value.trim()) { appendLog('⚠  Enter at least one port first.'); return }
-  await P2PSetConfig(buildSessionConfig())
+  const portsErr = validatePorts(ports.value, 'Port')
+  if (portsErr) { appendLog('⚠  ' + portsErr); return }
+  const cfgErr = await P2PSetConfig(buildSessionConfig())
+  if (cfgErr) { appendLog('⚠  ' + cfgErr); return }
   busy.value = true
   resetSDP()
   const result = await P2PGenerateOffer(ports.value.trim())
@@ -151,7 +164,8 @@ async function applyAnswer() {
 // ── Provider actions ───────────────────────────────────────────────────────────
 async function genAnswer() {
   if (!inboundSDP.value.trim()) { appendLog("⚠  Paste the Consumer's offer first."); return }
-  await P2PSetConfig(buildSessionConfig())
+  const cfgErr = await P2PSetConfig(buildSessionConfig())
+  if (cfgErr) { appendLog('⚠  ' + cfgErr); return }
   busy.value = true
   outboundSDP.value = ''
   const result = await P2PProvideAnswer(inboundSDP.value.trim())

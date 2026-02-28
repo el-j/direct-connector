@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contributing Guide — Direct Connector</title>
+  <meta name="description" content="How to contribute to Direct Connector: prerequisites, workflow, tests, CI pipeline, code conventions, and release process." />
+  <meta property="og:title" content="Contributing — Direct Connector" />
+  <meta property="og:description" content="Developer guide for contributing to Direct Connector. Go + Wails + Vue 3." />
+  <meta property="og:image" content="https://el-j.github.io/directConnector/icon.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/png" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #080c14;
+      --bg-1: #0d1524;
+      --bg-2: #121d30;
+      --bg-card: rgba(255,255,255,.04);
+      --bg-card-hover: rgba(255,255,255,.07);
+      --border: rgba(255,255,255,.08);
+      --border-accent: rgba(56,189,248,.25);
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a3b8;
+      --text-muted: #4e6380;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-teal: #2dd4bf;
+      --accent-glow: rgba(56,189,248,.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-card: 0 4px 32px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.05) inset;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background mesh gradient ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(99,102,241,.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(45,212,191,.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section { padding: 80px 0; }
+    section + section { padding-top: 0; }
+
+    /* ── Nav ──────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      -webkit-backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(8,12,20,.75);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links a.active { color: var(--accent-cyan); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      font-size: .85rem;
+      color: var(--text-secondary) !important;
+      transition: border-color var(--transition), color var(--transition) !important;
+    }
+    .nav-gh:hover { border-color: var(--accent-cyan) !important; color: var(--text-primary) !important; }
+    .nav-gh svg { flex-shrink: 0; }
+
+    /* ── Page hero ────────────────────────────────────────────────────────── */
+    .page-hero {
+      padding: 72px 0 56px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-1);
+    }
+    .page-hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(99,102,241,.1);
+      border: 1px solid rgba(99,102,241,.25);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .page-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0f6ff 0%, #94c4f5 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .page-hero p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      line-height: 1.7;
+      max-width: 620px;
+    }
+
+    /* ── Separator ────────────────────────────────────────────────────────── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+
+    /* ── Section header ───────────────────────────────────────────────────── */
+    .s-label {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 10px;
+    }
+    .s-title {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -.025em;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    .s-body {
+      color: var(--text-secondary);
+      font-size: .975rem;
+      line-height: 1.75;
+      max-width: 620px;
+    }
+
+    /* ── Two-column doc layout ────────────────────────────────────────────── */
+    .doc-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 48px;
+      align-items: start;
+      padding: 64px 0;
+    }
+    @media (max-width: 860px) { .doc-layout { grid-template-columns: 1fr; } }
+
+    /* ── Sticky sidebar TOC ───────────────────────────────────────────────── */
+    .toc {
+      position: sticky;
+      top: 76px;
+    }
+    .toc-title {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .toc-list a {
+      display: block;
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: color var(--transition), background var(--transition);
+      border-left: 2px solid transparent;
+    }
+    .toc-list a:hover {
+      color: var(--text-primary);
+      background: var(--bg-card);
+      border-left-color: var(--accent-cyan);
+    }
+    @media (max-width: 860px) { .toc { display: none; } }
+
+    /* ── Doc content ──────────────────────────────────────────────────────── */
+    .doc-content {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 64px;
+    }
+
+    .doc-section { scroll-margin-top: 80px; }
+
+    .doc-section h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 6px;
+    }
+    .doc-section .section-subtitle {
+      color: var(--text-secondary);
+      font-size: .925rem;
+      line-height: 1.65;
+      margin-bottom: 28px;
+    }
+    .doc-section h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      color: var(--text-primary);
+    }
+    .doc-section p {
+      color: var(--text-secondary);
+      font-size: .9rem;
+      line-height: 1.75;
+      margin-bottom: 14px;
+    }
+    .doc-section p:last-child { margin-bottom: 0; }
+    .doc-section ul, .doc-section ol {
+      margin: 12px 0 14px 0;
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .doc-section li {
+      color: var(--text-secondary);
+      font-size: .9rem;
+      line-height: 1.65;
+    }
+
+    /* ── Inline code ──────────────────────────────────────────────────────── */
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82em;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--accent-cyan);
+    }
+
+    /* ── Code blocks ──────────────────────────────────────────────────────── */
+    .code-block {
+      background: #050c1a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .code-block-bar {
+      background: #0d1524;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .code-block-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .code-block-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+    .code-block-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem;
+      color: var(--text-muted);
+    }
+    .code-block-body {
+      padding: 20px 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      line-height: 1.85;
+      color: #94a3b8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .c-prompt  { color: #2dd4bf; }
+    .c-cmd     { color: #f0f6ff; }
+    .c-flag    { color: #38bdf8; }
+    .c-val     { color: #a5f3fc; }
+    .c-comment { color: #334155; }
+    .c-ok      { color: #4ade80; }
+    .c-warn    { color: #fbbf24; }
+    .c-dir     { color: #6366f1; }
+    .c-file    { color: #f0f6ff; }
+    .c-arrow   { color: #2dd4bf; }
+    .c-dim     { color: #4e6380; }
+
+    /* ── Card grid ────────────────────────────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-card);
+      transition: border-color var(--transition), background var(--transition), transform var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, var(--card-glow, rgba(56,189,248,.05)) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .card.indigo { --card-glow: rgba(99,102,241,.07); }
+    .card.teal   { --card-glow: rgba(45,212,191,.07); }
+    .card.cyan   { --card-glow: rgba(56,189,248,.07); }
+    .card.green  { --card-glow: rgba(74,222,128,.07); }
+
+    .card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+    .card-icon.cyan-bg   { background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.2); }
+    .card-icon.teal-bg   { background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.2); }
+    .card-icon.indigo-bg { background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.2); }
+    .card-icon.green-bg  { background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.2); }
+
+    .card h3 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+    .card p  { font-size: .85rem; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── Prereq list ──────────────────────────────────────────────────────── */
+    .prereq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .prereq-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      transition: border-color var(--transition);
+    }
+    .prereq-item:hover { border-color: var(--border-accent); }
+    .prereq-num {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+      color: #080c14;
+      font-size: .72rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      margin-top: 1px;
+    }
+    .prereq-body h4 { font-size: .88rem; font-weight: 600; margin-bottom: 4px; }
+    .prereq-body p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+
+    /* ── Step list ────────────────────────────────────────────────────────── */
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 20px;
+      position: relative;
+    }
+    .step-list::before {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 26px;
+      bottom: 26px;
+      width: 1px;
+      background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-blue), transparent);
+      opacity: .3;
+    }
+    .step-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 14px 0;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-2);
+      border: 1px solid var(--border-accent);
+      color: var(--accent-cyan);
+      font-size: .72rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      z-index: 1;
+    }
+    .step-body h4 { font-size: .9rem; font-weight: 600; margin-bottom: 4px; }
+    .step-body p  { font-size: .83rem; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+
+    /* ── Checklist ────────────────────────────────────────────────────────── */
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      transition: border-color var(--transition);
+    }
+    .check-item:hover { border-color: var(--border-accent); }
+    .check-box {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1.5px solid var(--text-muted);
+      margin-top: 2px;
+    }
+    .check-text { font-size: .87rem; color: var(--text-secondary); line-height: 1.55; }
+    .check-text code { font-size: .8em; }
+
+    /* ── CI pipeline jobs ─────────────────────────────────────────────────── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 24px;
+    }
+    .pipeline-connector {
+      width: 1px;
+      height: 24px;
+      background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-blue));
+      margin-left: 23px;
+      opacity: .4;
+    }
+    .pipeline-job {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .pipeline-job:hover { border-color: var(--border-accent); background: var(--bg-card-hover); }
+    .pipeline-badge {
+      flex-shrink: 0;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      font-weight: 500;
+      min-width: 68px;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .badge-cyan   { background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.25); color: var(--accent-cyan); }
+    .badge-indigo { background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.25); color: var(--accent-blue); }
+    .badge-teal   { background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.25); color: var(--accent-teal); }
+    .badge-green  { background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.25); color: #4ade80; }
+    .pipeline-job-body h4 { font-size: .9rem; font-weight: 700; margin-bottom: 4px; }
+    .pipeline-job-body p  { font-size: .83rem; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+    .pipeline-job-body ul { margin: 6px 0 0 16px; gap: 3px; }
+    .pipeline-job-body li { font-size: .82rem; color: var(--text-secondary); }
+
+    /* ── Convention tags ──────────────────────────────────────────────────── */
+    .conv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .conv-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px 20px;
+      transition: border-color var(--transition);
+    }
+    .conv-card:hover { border-color: var(--border-accent); }
+    .conv-card-title {
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .conv-card ul {
+      margin: 0;
+      padding-left: 16px;
+      gap: 7px;
+    }
+    .conv-card li { font-size: .84rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── Numbered checklist ───────────────────────────────────────────────── */
+    .num-checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .num-check-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .num-check-item:hover {
+      border-color: var(--border-accent);
+      transform: translateX(3px);
+    }
+    .num-check-n {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--bg-2);
+      border: 1px solid rgba(56,189,248,.3);
+      color: var(--accent-cyan);
+      font-size: .7rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      margin-top: 1px;
+    }
+    .num-check-body h4 { font-size: .88rem; font-weight: 600; margin-bottom: 4px; }
+    .num-check-body p  { font-size: .82rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+
+    /* ── Info callout ─────────────────────────────────────────────────────── */
+    .callout {
+      background: rgba(56,189,248,.06);
+      border: 1px solid rgba(56,189,248,.2);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 16px 0;
+    }
+    .callout.warn {
+      background: rgba(251,191,36,.05);
+      border-color: rgba(251,191,36,.2);
+    }
+    .callout-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+    .callout p { font-size: .86rem; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+    .callout p strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ── Section divider ──────────────────────────────────────────────────── */
+    .section-bg { background: var(--bg-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+    }
+    .footer-left img { width: 22px; height: 22px; border-radius: 5px; }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--text-secondary); }
+
+    /* ── Responsive tweaks ────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      section { padding: 56px 0; }
+      .page-hero { padding: 52px 0 40px; }
+      .nav-links { display: none; }
+      .doc-layout { padding: 40px 0; gap: 32px; }
+    }
+
+    /* ── Utility ──────────────────────────────────────────────────────────── */
+    .text-center { text-align: center; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mb-0  { margin-bottom: 0 !important; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container nav-inner">
+    <a class="nav-logo" href="./index.html">
+      <img src="./icon.png" alt="Direct Connector icon" />
+      Direct Connector
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">← Back to Home</a></li>
+      <li><a href="./getting-started.html">Getting Started</a></li>
+      <li><a href="./architecture.html">Architecture</a></li>
+      <li><a href="./api.html">API Reference</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.5-3.9-1.5-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.5-.3-5.1-1.3-5.1-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.2 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.7 21.4 24 17.1 24 12c0-6.3-5.2-11.5-12-11.5z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Page Hero ─────────────────────────────────────────────────────────── -->
+<div class="page-hero">
+  <div class="container">
+    <div class="page-hero-badge">Contributing Guide</div>
+    <h1>Build &amp; contribute</h1>
+    <p>
+      Everything you need to set up your environment, run tests, follow code conventions,
+      and submit a great pull request for Direct Connector.
+    </p>
+  </div>
+</div>
+
+<!-- ── Main doc layout ───────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="doc-layout">
+
+    <!-- Sidebar TOC -->
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <ul class="toc-list">
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#repo-structure">Repository Structure</a></li>
+        <li><a href="#dev-workflow">Development Workflow</a></li>
+        <li><a href="#running-tests">Running Tests</a></li>
+        <li><a href="#ci-pipeline">CI Pipeline</a></li>
+        <li><a href="#code-conventions">Code Conventions</a></li>
+        <li><a href="#new-backend-method">New Backend Method</a></li>
+        <li><a href="#new-internal-package">New Internal Package</a></li>
+        <li><a href="#pr-checklist">Pull Request Checklist</a></li>
+        <li><a href="#release-process">Release Process</a></li>
+      </ul>
+    </aside>
+
+    <!-- Content -->
+    <div class="doc-content">
+
+      <!-- 1. Prerequisites ──────────────────────────────────────────────── -->
+      <div class="doc-section" id="prerequisites">
+        <div class="s-label">Step 0</div>
+        <h2 class="s-title">Prerequisites</h2>
+        <p class="section-subtitle">
+          Install these tools before cloning the repo. The Wails CLI wraps Go's build system and manages
+          the frontend build pipeline automatically.
+        </p>
+
+        <div class="prereq-list">
+          <div class="prereq-item">
+            <div class="prereq-num">1</div>
+            <div class="prereq-body">
+              <h4>Go 1.24+</h4>
+              <p>The project's <code>go.mod</code> files require <code>go 1.24.0</code> or later.
+                 Download from <a href="https://go.dev/dl/" target="_blank" rel="noopener" style="color:var(--accent-cyan)">go.dev/dl</a>
+                 or use <code>brew install go</code> on macOS.</p>
+            </div>
+          </div>
+          <div class="prereq-item">
+            <div class="prereq-num">2</div>
+            <div class="prereq-body">
+              <h4>Node.js 20+</h4>
+              <p>Required for the Vue 3 / Vite / Vitest frontend toolchain. CI pins to Node 20.
+                 Use <code>nvm</code> or download from <a href="https://nodejs.org" target="_blank" rel="noopener" style="color:var(--accent-cyan)">nodejs.org</a>.</p>
+            </div>
+          </div>
+          <div class="prereq-item">
+            <div class="prereq-num">3</div>
+            <div class="prereq-body">
+              <h4>Wails CLI v2</h4>
+              <p>The desktop GUI binary is built with Wails v2. Install the CLI once:
+              <br /><code>go install github.com/wailsapp/wails/v2/cmd/wails@latest</code>
+              <br />Verify with <code>wails doctor</code> — it checks all platform dependencies.</p>
+            </div>
+          </div>
+          <div class="prereq-item">
+            <div class="prereq-num">4</div>
+            <div class="prereq-body">
+              <h4>macOS: Xcode Command Line Tools</h4>
+              <p>Required for native macOS builds (WebKit, CGO). Install with:
+                 <code>xcode-select --install</code>. For a universal Intel+Apple Silicon
+                 bundle, a full Xcode installation is needed.</p>
+            </div>
+          </div>
+          <div class="prereq-item">
+            <div class="prereq-num">5</div>
+            <div class="prereq-body">
+              <h4>Windows cross-compile: mingw-w64</h4>
+              <p>To build the Windows <code>.exe</code> from macOS (as CI does):
+                 <code>brew install mingw-w64</code>.
+                 The cross-compiler provides <code>x86_64-w64-mingw32-gcc</code> which
+                 Wails uses as the C compiler for CGO.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block mt-16">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Verify your setup</span>
+          </div>
+          <div class="code-block-body"><span class="c-prompt">$</span> <span class="c-cmd">wails doctor</span>
+<span class="c-comment"># Wails checks Go, Node, npm, platform WebView, and compiler.</span>
+<span class="c-comment"># All items must show ✓ before running make run.</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">go version</span>
+<span class="c-ok">go version go1.24.0 darwin/arm64</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">node --version</span>
+<span class="c-ok">v20.x.x</span></div>
+        </div>
+      </div>
+
+      <!-- 2. Repository Structure ────────────────────────────────────────── -->
+      <div class="doc-section" id="repo-structure">
+        <div class="s-label">Structure</div>
+        <h2 class="s-title">Repository Structure</h2>
+        <p class="section-subtitle">
+          The project contains <strong>two independent Go modules</strong> that cannot import each other.
+          Changes to shared logic (e.g. <code>tunnel.Manager</code>) must be mirrored in both
+          <code>app/internal/</code> and <code>app-wails/internal/</code>.
+        </p>
+
+        <div class="code-block">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Repository tree</span>
+          </div>
+          <div class="code-block-body"><span class="c-dir">direct-connector/</span>
+<span class="c-dim">├──</span> <span class="c-dir">app/</span>              <span class="c-comment">← CLI/Docker module  (module: mqtt-tunnel)</span>
+<span class="c-dim">│   ├──</span> <span class="c-dir">internal/</span>     <span class="c-comment">← config, keygen, p2p, tunnel packages</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">cli.go</span>        <span class="c-comment">← CLI entry point  (DC_MODE / --mode flag)</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">main.go</span>       <span class="c-comment">← GUI entry point  (build tag: !nofyne)</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">main_nofyne.go</span> <span class="c-comment">← Headless entry   (build tag: nofyne)</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">build.sh</span>      <span class="c-comment">← Fyne/CLI build helper</span>
+<span class="c-dim">│   └──</span> <span class="c-file">go.mod</span>        <span class="c-comment">← module mqtt-tunnel</span>
+<span class="c-dim">│</span>
+<span class="c-dim">├──</span> <span class="c-dir">app-wails/</span>        <span class="c-comment">← GUI module  (module: direct-connector)</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">app.go</span>        <span class="c-comment">← Wails App struct + all bound methods</span>
+<span class="c-dim">│   ├──</span> <span class="c-file">main.go</span>       <span class="c-comment">← Wails bootstrap</span>
+<span class="c-dim">│   ├──</span> <span class="c-dir">frontend/</span>     <span class="c-comment">← Vue 3 + TypeScript + Tailwind CSS</span>
+<span class="c-dim">│   │   ├──</span> <span class="c-dir">src/</span>
+<span class="c-dim">│   │   │   ├──</span> <span class="c-dir">components/</span>  <span class="c-comment">← SshTab.vue, P2pTab.vue</span>
+<span class="c-dim">│   │   │   ├──</span> <span class="c-dir">test/</span>        <span class="c-comment">← Vitest tests + setup.ts mock</span>
+<span class="c-dim">│   │   │   └──</span> <span class="c-dir">utils/</span>       <span class="c-comment">← portValidation.ts (shared validators)</span>
+<span class="c-dim">│   │   ├──</span> <span class="c-dir">wailsjs/</span>     <span class="c-comment">← auto-generated Go bindings (do not edit)</span>
+<span class="c-dim">│   │   └──</span> <span class="c-file">package.json</span>
+<span class="c-dim">│   ├──</span> <span class="c-dir">internal/</span>     <span class="c-comment">← config, keygen, p2p, relay, sshsetup, tunnel</span>
+<span class="c-dim">│   └──</span> <span class="c-file">go.mod</span>        <span class="c-comment">← module direct-connector</span>
+<span class="c-dim">│</span>
+<span class="c-dim">├──</span> <span class="c-dir">docs/</span>             <span class="c-comment">← GitHub Pages documentation site</span>
+<span class="c-dim">├──</span> <span class="c-file">Dockerfile</span>        <span class="c-comment">← Static CLI image (CGO_ENABLED=0, nofyne)</span>
+<span class="c-dim">├──</span> <span class="c-file">docker-compose.yml</span>
+<span class="c-dim">└──</span> <span class="c-file">Makefile</span>          <span class="c-comment">← Root build targets (make run / test / wails-*)</span></div>
+        </div>
+
+        <div class="card-grid mt-16">
+          <div class="card cyan">
+            <div class="card-icon cyan-bg">🔧</div>
+            <h3>Two Go modules</h3>
+            <p>
+              <code>app/go.mod</code> (<code>mqtt-tunnel</code>) owns the Fyne GUI and CLI/Docker binary.
+              <code>app-wails/go.mod</code> (<code>direct-connector</code>) owns the Wails GUI backend.
+              Never import across modules.
+            </p>
+          </div>
+          <div class="card indigo">
+            <div class="card-icon indigo-bg">🏷️</div>
+            <h3>Build tags (<code>app/</code> only)</h3>
+            <p>
+              Default (<code>!nofyne</code>) builds the native GUI via <code>main.go</code>.
+              The <code>nofyne</code> tag produces a headless CLI/Docker binary from
+              <code>main_nofyne.go</code> — no OpenGL or X11 dependency.
+            </p>
+          </div>
+          <div class="card teal">
+            <div class="card-icon teal-bg">⚡</div>
+            <h3>Wails bindings</h3>
+            <p>
+              All exported methods on <code>App</code> in <code>app.go</code> become
+              async TypeScript functions. The <code>wailsjs/</code> folder is
+              auto-generated — never edit it by hand.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Development Workflow ────────────────────────────────────────── -->
+      <div class="doc-section" id="dev-workflow">
+        <div class="s-label">Workflow</div>
+        <h2 class="s-title">Development Workflow</h2>
+        <p class="section-subtitle">
+          The primary development loop uses <code>make run</code> which starts Wails dev mode —
+          a native window with a Vite dev server inside. Go changes trigger a Go rebuild;
+          Vue/TypeScript changes are hot-reloaded via Vite HMR with no restart.
+        </p>
+
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Clone the repository</h4>
+              <p><code>git clone https://github.com/el-j/directConnector.git &amp;&amp; cd directConnector</code></p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Install frontend dependencies</h4>
+              <p>Wails installs them automatically on first <code>make run</code>, but you can also run
+                 <code>cd app-wails/frontend &amp;&amp; npm install</code> upfront for IDE autocomplete.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>Start the dev server</h4>
+              <p><code>make run</code> — opens a native desktop window. Wails proxies the Vite dev server
+                 running on port 34115 inside the WebView.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h4>Edit Go backend (<code>app.go</code>, <code>internal/</code>)</h4>
+              <p>Save the file. Wails detects the change, rebuilds the Go binary, and relaunches the window automatically.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h4>Edit Vue / TypeScript (<code>frontend/src/</code>)</h4>
+              <p>Vite HMR patches the module in-place. No window restart needed — changes appear instantly.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">6</div>
+            <div class="step-body">
+              <h4>Browser DevTools</h4>
+              <p>Open <code>http://localhost:34115</code> in any browser for the standard Vite dev UI, or
+                 right-click inside the Wails window and choose <em>Inspect</em> to access the embedded WebView DevTools.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block mt-24">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Common Makefile targets</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment"># Start Wails dev server with hot-reload (primary dev workflow)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make run</span>
+
+<span class="c-comment"># Run all tests in both Go modules + Vitest (see CI)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make test</span>
+
+<span class="c-comment"># Build macOS arm64 bundle → dist/direct-connector-mac.app</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make wails-mac</span>
+
+<span class="c-comment"># Build Windows exe → dist/direct-connector-windows.exe</span>
+<span class="c-comment"># Requires: brew install mingw-w64</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make wails-windows</span>
+
+<span class="c-comment"># Build all platforms (skips missing cross-compilers gracefully)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make build-all</span>
+
+<span class="c-comment"># Remove dist/ and Wails intermediate build output</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make clean</span></div>
+        </div>
+      </div>
+
+      <!-- 4. Running Tests ──────────────────────────────────────────────── -->
+      <div class="doc-section" id="running-tests">
+        <div class="s-label">Testing</div>
+        <h2 class="s-title">Running Tests</h2>
+        <p class="section-subtitle">
+          The project has three test suites: Go backend tests (both modules) and Vitest frontend tests.
+          All three must pass before a PR can be merged — CI enforces this via the <code>test</code> job
+          that blocks both <code>build</code> and <code>pages</code>.
+        </p>
+
+        <h3>All tests (mirrors CI)</h3>
+        <div class="code-block">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">make test</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment"># Runs both Go modules with race detector + Vitest</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make test</span>
+<span class="c-comment"># Expands to:</span>
+<span class="c-comment">#   cd app-wails &amp;&amp; go test -race -count=1 ./...</span>
+<span class="c-comment">#   cd app       &amp;&amp; go test -race -count=1 ./...</span></div>
+        </div>
+
+        <h3>Frontend tests (Vitest)</h3>
+        <div class="code-block">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">app-wails/frontend</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment"># Run Vitest once (43 tests across models, SshTab, P2pTab)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app-wails/frontend &amp;&amp; npm test</span>
+
+<span class="c-comment"># Interactive watch mode (re-runs on file save)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app-wails/frontend &amp;&amp; npm run test:watch</span>
+
+<span class="c-comment"># TypeScript type-check (no emit)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app-wails/frontend &amp;&amp; npx vue-tsc --noEmit</span></div>
+        </div>
+
+        <h3>Go tests — granular options</h3>
+        <div class="code-block">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Go test flags</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment"># Run with race detector (required in CI; catches data races)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">go test</span> <span class="c-flag">-race</span> <span class="c-flag">-count=1</span> <span class="c-val">./internal/...</span>
+
+<span class="c-comment"># Skip integration tests that require real SSH / network</span>
+<span class="c-prompt">$</span> <span class="c-cmd">go test</span> <span class="c-flag">-short</span> <span class="c-val">./internal/...</span>
+
+<span class="c-comment"># Run the CLI/Docker module (headless — no Fyne GUI)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app &amp;&amp; go test</span> <span class="c-flag">-race</span> <span class="c-flag">-count=1</span> <span class="c-flag">-tags nofyne</span> <span class="c-val">./...</span>
+
+<span class="c-comment"># Run a specific package verbosely</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app-wails &amp;&amp; go test</span> <span class="c-flag">-v</span> <span class="c-flag">-race</span> <span class="c-val">./internal/tunnel/...</span></div>
+        </div>
+
+        <div class="callout mt-16">
+          <div class="callout-icon">💡</div>
+          <p>
+            <strong>CI only tests <code>./internal/...</code></strong> in the Wails module because
+            <code>app-wails/main.go</code> and <code>app.go</code> import the Wails WebView runtime
+            which requires WebKit/GTK headers not present on a stock Ubuntu runner.
+            Local builds on macOS can run <code>./...</code> without restriction.
+          </p>
+        </div>
+      </div>
+
+      <!-- 5. CI Pipeline ────────────────────────────────────────────────── -->
+      <div class="doc-section" id="ci-pipeline">
+        <div class="s-label">CI / CD</div>
+        <h2 class="s-title">CI Pipeline</h2>
+        <p class="section-subtitle">
+          GitHub Actions runs on every push to <code>main</code>/<code>master</code>,
+          every pull request, and every <code>v*</code> tag. The pipeline has four jobs with
+          explicit dependency edges.
+        </p>
+
+        <div class="pipeline">
+          <div class="pipeline-job">
+            <div class="pipeline-badge badge-cyan">test</div>
+            <div class="pipeline-job-body">
+              <h4>Tests — ubuntu-latest · blocks everything</h4>
+              <p>Runs on every push and pull request. All three suites must pass before
+                 <code>build</code> or <code>pages</code> can proceed:</p>
+              <ul>
+                <li><code>go test -race -count=1 -v ./internal/...</code> in <code>app-wails/</code></li>
+                <li><code>go test -race -count=1 -v -tags nofyne ./...</code> in <code>app/</code></li>
+                <li><code>npm ci &amp;&amp; npm test</code> (Vitest) in <code>app-wails/frontend/</code></li>
+              </ul>
+            </div>
+          </div>
+          <div class="pipeline-connector"></div>
+          <div class="pipeline-job">
+            <div class="pipeline-badge badge-indigo">build</div>
+            <div class="pipeline-job-body">
+              <h4>Build — macos-latest (arm64) · needs: test</h4>
+              <p>Runs on every push to default branch and on <code>v*</code> tags.
+                 Produces four artifacts uploaded to GitHub Actions:</p>
+              <ul>
+                <li><code>direct-connector-mac.zip</code> — macOS arm64 <code>.app</code> bundle (symlinks preserved)</li>
+                <li><code>direct-connector-windows.exe</code> — Windows amd64, cross-compiled via mingw-w64</li>
+                <li><code>direct-connector-cli-darwin-arm64</code> — headless macOS CLI binary</li>
+                <li><code>direct-connector-linux-amd64</code> — headless Linux CLI binary (CGO_ENABLED=0)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="pipeline-connector"></div>
+          <div class="pipeline-job">
+            <div class="pipeline-badge badge-teal">pages</div>
+            <div class="pipeline-job-body">
+              <h4>Deploy GitHub Pages · needs: test · main/master only</h4>
+              <p>Deploys the <code>docs/</code> directory to GitHub Pages using the official
+                 <code>actions/deploy-pages</code> action. Only runs on pushes to the default branch
+                 (never from PRs). Enable in repo Settings → Pages → Source: GitHub Actions.</p>
+            </div>
+          </div>
+          <div class="pipeline-connector"></div>
+          <div class="pipeline-job">
+            <div class="pipeline-badge badge-green">release</div>
+            <div class="pipeline-job-body">
+              <h4>GitHub Release · needs: build · v* tags only</h4>
+              <p>Downloads all four build artifacts and publishes a GitHub Release using
+                 <code>softprops/action-gh-release</code> with auto-generated release notes
+                 (compiled from merged PRs and commits since the last tag).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Code Conventions ───────────────────────────────────────────── -->
+      <div class="doc-section" id="code-conventions">
+        <div class="s-label">Standards</div>
+        <h2 class="s-title">Code Conventions</h2>
+        <p class="section-subtitle">
+          These patterns are enforced by the existing tests and should be followed in all new code.
+        </p>
+
+        <div class="conv-grid">
+          <div class="conv-card">
+            <div class="conv-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              Go backend
+            </div>
+            <ul>
+              <li>Always use <code>-race</code> flag when writing new tests</li>
+              <li>Mutex naming: <code>mu</code> for the primary lock on any struct</li>
+              <li>Use callback pattern for status/log (<code>OnStatus</code>, <code>OnLog</code> fields) rather than channels, to avoid goroutine leaks</li>
+              <li>String-error return convention: empty string <code>""</code> means success; non-empty string is the error message — matches Wails TypeScript call sites</li>
+              <li>Table-driven tests with <code>[]struct{ name, … }</code> for all new package functions</li>
+              <li>Integration tests that require network should call <code>t.Skip()</code> when <code>testing.Short()</code> is true</li>
+            </ul>
+          </div>
+          <div class="conv-card">
+            <div class="conv-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              TypeScript
+            </div>
+            <ul>
+              <li><code>strict: true</code> in <code>tsconfig.json</code> — no implicit <code>any</code></li>
+              <li>Use <code>validatePort()</code> / <code>validatePorts()</code> from <code>src/utils/portValidation.ts</code> for all port input fields — never inline <code>parseInt</code> checks</li>
+              <li>String-error convention from Go: check <code>result !== ''</code> for errors from bound methods, not <code>result.ok</code></li>
+              <li>Model constructors in <code>wailsjs/go/models.ts</code> guard against <code>null</code>/<code>undefined</code> with <code>if (!source) source = {}</code></li>
+            </ul>
+          </div>
+          <div class="conv-card">
+            <div class="conv-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Vue components
+            </div>
+            <ul>
+              <li>Use <code>v-show</code>, <strong>not</strong> <code>v-if</code>, to toggle tabs — both tabs must stay mounted so event listeners are active</li>
+              <li>Register all <code>EventsOn</code> listeners in <code>onMounted</code>; call the returned cleanup function in <code>onUnmounted</code> to prevent listener leaks</li>
+              <li>Use <code>&lt;Teleport to="body"&gt;</code> for modals so they render above all other DOM</li>
+              <li>Protect async refresh functions with a <code>refreshing</code> boolean flag to prevent concurrent duplicate calls</li>
+            </ul>
+          </div>
+          <div class="conv-card">
+            <div class="conv-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Vitest tests
+            </div>
+            <ul>
+              <li>Use <code>beforeEach</code> to reset specific mocks — do <strong>not</strong> use <code>vi.resetAllMocks()</code> globally as it clears the Wails runtime shim</li>
+              <li>Use <code>globalThis.__testEmitEvent(eventName, payload)</code> to simulate backend events (<code>tunnel:status</code>, <code>setup:prompt</code>, etc.) in component tests</li>
+              <li>Call <code>await flushPromises()</code> after actions that trigger async Go method calls before asserting DOM state</li>
+              <li>Log arrays: test that they cap at 200 lines, not that they contain specific indices</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Adding a New Backend Method ───────────────────────────────── -->
+      <div class="doc-section" id="new-backend-method">
+        <div class="s-label">Extending</div>
+        <h2 class="s-title">Adding a New Backend Method</h2>
+        <p class="section-subtitle">
+          All exported methods on the <code>App</code> struct in <code>app-wails/app.go</code>
+          automatically become async TypeScript functions via Wails bindings.
+          Follow this checklist when adding a new one.
+        </p>
+
+        <div class="num-checklist">
+          <div class="num-check-item">
+            <div class="num-check-n">1</div>
+            <div class="num-check-body">
+              <h4>Add the method to <code>app.go</code></h4>
+              <p>Define the exported method on <code>*App</code>. Use the string-error return convention:
+                 return <code>""</code> on success and a non-empty error string on failure. For long-running
+                 operations, accept a context or use <code>runtime.EventsEmit</code> to push progress events.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">2</div>
+            <div class="num-check-body">
+              <h4>Regenerate Wails bindings</h4>
+              <p><code>cd app-wails &amp;&amp; wails generate module</code> — regenerates
+                 <code>frontend/wailsjs/go/main/App.js</code> and <code>App.d.ts</code> to include
+                 the new method.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">3</div>
+            <div class="num-check-body">
+              <h4>Verify the TypeScript declaration</h4>
+              <p>Open <code>frontend/wailsjs/go/main/App.d.ts</code> and confirm your method appears
+                 with the correct parameter and return types. Fix the generated declaration if Wails
+                 inferred an <code>any</code> type incorrectly.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">4</div>
+            <div class="num-check-body">
+              <h4>Update the test mock in <code>setup.ts</code></h4>
+              <p>Add a <code>vi.fn()</code> stub for the new method in
+                 <code>frontend/src/test/setup.ts</code>. The mock is referenced by the
+                 Vitest auto-mock for <code>wailsjs/go/main/App</code> so component tests
+                 don't call real Go code.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">5</div>
+            <div class="num-check-body">
+              <h4>Write component and unit tests</h4>
+              <p>Add tests in the relevant <code>*.test.ts</code> file covering the happy path,
+                 error path (non-empty string return), and any emitted events the method produces.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">6</div>
+            <div class="num-check-body">
+              <h4>Update <code>docs/api.html</code></h4>
+              <p>Document the method signature, parameters, return value, and any events it emits
+                 in the API Reference page so users of the TypeScript bindings understand the contract.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block mt-24">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Example — adding MyNewMethod to app.go</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment">// app-wails/app.go</span>
+<span class="c-comment">// MyNewMethod does X. Returns "" on success, error string on failure.</span>
+<span class="c-cmd">func</span> <span class="c-flag">(a *App)</span> <span class="c-ok">MyNewMethod</span><span class="c-cmd">(param string) string {</span>
+    <span class="c-cmd">a.mu.Lock()</span>
+    <span class="c-cmd">defer a.mu.Unlock()</span>
+    <span class="c-comment">// ... implementation ...</span>
+    <span class="c-cmd">return ""</span>  <span class="c-comment">// success</span>
+<span class="c-cmd">}</span>
+
+<span class="c-comment">// Regenerate bindings:</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cd app-wails &amp;&amp; wails generate module</span>
+
+<span class="c-comment">// frontend/src/test/setup.ts — add mock:</span>
+<span class="c-cmd">MyNewMethod: vi.fn().mockResolvedValue('')</span></div>
+        </div>
+      </div>
+
+      <!-- 8. Adding a New Internal Package ─────────────────────────────── -->
+      <div class="doc-section" id="new-internal-package">
+        <div class="s-label">Extending</div>
+        <h2 class="s-title">Adding a New Internal Package</h2>
+        <p class="section-subtitle">
+          Both modules have parallel <code>internal/</code> directories. If the new package is
+          needed only by the Wails GUI, add it to <code>app-wails/internal/</code>. If it's also
+          needed by the CLI/Docker module, mirror it in <code>app/internal/</code> as well.
+        </p>
+
+        <div class="num-checklist">
+          <div class="num-check-item">
+            <div class="num-check-n">1</div>
+            <div class="num-check-body">
+              <h4>Create the package directory</h4>
+              <p>Under <code>app-wails/internal/&lt;pkgname&gt;/</code> (and optionally
+                 <code>app/internal/&lt;pkgname&gt;/</code>). Use lowercase, single-word package names
+                 matching the directory name.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">2</div>
+            <div class="num-check-body">
+              <h4>Define a clean public API</h4>
+              <p>Export only what <code>app.go</code> (or <code>main.go</code>) needs. Keep
+                 internal types unexported. Use callback fields (<code>OnStatus func(…)</code>)
+                 rather than channels for async notification.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">3</div>
+            <div class="num-check-body">
+              <h4>Write table-driven unit tests</h4>
+              <p>Create <code>&lt;pkgname&gt;_test.go</code> with <code>package &lt;pkgname&gt;_test</code>
+                 (black-box style). Use <code>t.TempDir()</code> for file I/O. Mark slow network tests
+                 with <code>if testing.Short() { t.Skip() }</code>.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">4</div>
+            <div class="num-check-body">
+              <h4>Wire the package into <code>app.go</code></h4>
+              <p>Import the package and add any required fields to the <code>App</code> struct.
+                 Initialize in <code>NewApp()</code> and clean up in the <code>shutdown</code> lifecycle
+                 method if the package owns goroutines.</p>
+            </div>
+          </div>
+          <div class="num-check-item">
+            <div class="num-check-n">5</div>
+            <div class="num-check-body">
+              <h4>Mirror in <code>app/internal/</code> if needed by CLI</h4>
+              <p>The two modules cannot share code at the Go module level. If the CLI Docker image
+                 needs the same functionality, duplicate the package (keeping both in sync manually
+                 or via a script).</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout mt-16">
+          <div class="callout-icon">📦</div>
+          <p>
+            <strong>Existing packages for reference:</strong>
+            <code>internal/config</code> (JSON config), <code>internal/keygen</code> (Ed25519 keypair),
+            <code>internal/tunnel</code> (SSH subprocess), <code>internal/p2p</code> (WebRTC),
+            <code>internal/relay</code> (embedded TURN server), <code>internal/sshsetup</code>
+            (interactive key installer, Wails module only).
+          </p>
+        </div>
+      </div>
+
+      <!-- 9. Pull Request Checklist ─────────────────────────────────────── -->
+      <div class="doc-section" id="pr-checklist">
+        <div class="s-label">Pull Requests</div>
+        <h2 class="s-title">Pull Request Checklist</h2>
+        <p class="section-subtitle">
+          Run through this checklist before opening a PR. CI will catch most failures, but
+          checking locally first avoids wasted CI minutes.
+        </p>
+
+        <div class="checklist">
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              All tests pass: <code>make test</code> (Go — both modules, with <code>-race</code>) and
+              <code>cd app-wails/frontend &amp;&amp; npm test</code> (Vitest)
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              TypeScript is clean: <code>cd app-wails/frontend &amp;&amp; npx vue-tsc --noEmit</code>
+              exits with no errors
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              No new dependencies added without a security scan. Check
+              <a href="https://github.com/advisories" target="_blank" rel="noopener" style="color:var(--accent-cyan)">GitHub Advisory Database</a>
+              for known CVEs in any new package
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              If the change resolves or adds a known issue, update the todo list in
+              <code>docs/audit.md</code> accordingly
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              If new <code>App</code> methods were added, <code>docs/api.html</code> has been updated
+              with method signatures, parameters, and emitted events
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              Port validation uses <code>validatePort()</code> / <code>validatePorts()</code> from
+              <code>src/utils/portValidation.ts</code> — no inline range checks
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              Vue components using <code>EventsOn</code> call the returned cleanup function in
+              <code>onUnmounted</code>
+            </div>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <div class="check-text">
+              If the legacy <code>app/</code> module is affected, changes are mirrored in
+              <code>app/internal/</code> alongside <code>app-wails/internal/</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 10. Release Process ───────────────────────────────────────────── -->
+      <div class="doc-section" id="release-process">
+        <div class="s-label">Releases</div>
+        <h2 class="s-title">Release Process</h2>
+        <p class="section-subtitle">
+          Releases are fully automated — pushing a semver tag is the only manual step required.
+          The CI pipeline handles building, packaging, and publishing.
+        </p>
+
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Merge all changes to <code>main</code></h4>
+              <p>Ensure <code>make test</code> passes cleanly on the default branch before tagging.
+                 The <code>pages</code> job will deploy the latest docs automatically.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Push a semver tag</h4>
+              <p>Tags matching <code>v*</code> (e.g. <code>v1.2.3</code>, <code>v2.0.0-rc1</code>)
+                 trigger the full CI pipeline. Use annotated tags:
+                 <code>git tag -a v1.2.3 -m "v1.2.3" &amp;&amp; git push origin v1.2.3</code></p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>CI builds four artifacts on macOS arm64</h4>
+              <p>The <code>build</code> job produces:
+                 <code>direct-connector-mac.zip</code> (macOS .app bundle),
+                 <code>direct-connector-windows.exe</code> (cross-compiled via mingw-w64),
+                 <code>direct-connector-cli-darwin-arm64</code> and
+                 <code>direct-connector-linux-amd64</code> (headless CLI binaries).</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h4>GitHub Release is published automatically</h4>
+              <p>The <code>release</code> job downloads all four artifacts and creates a GitHub Release
+                 at <code>github.com/el-j/directConnector/releases</code> using
+                 <code>softprops/action-gh-release</code> with auto-generated release notes compiled
+                 from merged PRs and commits since the previous tag.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h4>Download buttons update automatically</h4>
+              <p>The landing page (<code>docs/index.html</code>) fetches the latest release from the
+                 GitHub API at load time — no manual update needed. Users always see the newest version.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block mt-24">
+          <div class="code-block-bar">
+            <div class="code-block-dots">
+              <div class="code-block-dot dot-red"></div>
+              <div class="code-block-dot dot-yellow"></div>
+              <div class="code-block-dot dot-green"></div>
+            </div>
+            <span class="code-block-label">Tagging a release</span>
+          </div>
+          <div class="code-block-body"><span class="c-comment"># Ensure main is green and up to date</span>
+<span class="c-prompt">$</span> <span class="c-cmd">git checkout main &amp;&amp; git pull</span>
+<span class="c-prompt">$</span> <span class="c-cmd">make test</span>
+<span class="c-ok">✅  All tests passed.</span>
+
+<span class="c-comment"># Create and push an annotated semver tag</span>
+<span class="c-prompt">$</span> <span class="c-cmd">git tag</span> <span class="c-flag">-a</span> <span class="c-val">v1.2.3</span> <span class="c-flag">-m</span> <span class="c-val">"v1.2.3"</span>
+<span class="c-prompt">$</span> <span class="c-cmd">git push origin</span> <span class="c-val">v1.2.3</span>
+
+<span class="c-comment"># CI triggers: test → build → release</span>
+<span class="c-comment"># Release is published at:</span>
+<span class="c-comment"># https://github.com/el-j/directConnector/releases/tag/v1.2.3</span></div>
+        </div>
+
+        <div class="callout warn mt-16">
+          <div class="callout-icon">⚠️</div>
+          <p>
+            <strong>The <code>release</code> job requires <code>contents: write</code> permission.</strong>
+            This is declared in the workflow and granted automatically by GitHub Actions for pushes
+            from the repository owner. Fork contributors cannot trigger releases directly — they
+            open PRs which are merged and tagged by a maintainer.
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /.doc-content -->
+  </div><!-- /.doc-layout -->
+</div><!-- /.container -->
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <img src="./icon.png" alt="" />
+      <span>Direct Connector — unlicensed, use freely.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/el-j/directConnector" target="_blank" rel="noopener">Source</a></li>
+      <li><a href="https://github.com/el-j/directConnector/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/el-j/directConnector/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://github.com/el-j/directConnector/actions" target="_blank" rel="noopener">CI</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
